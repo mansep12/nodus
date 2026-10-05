@@ -1,0 +1,52 @@
+{
+  "name": "@nodus/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "dev:sandbox": "bash -c 'set -a; . ./.env.sandbox; set +a; NEXT_PUBLIC_SOFTWARE_PASSKEYS=1 NODUS_DATA_DIR=.data-sandbox NEXT_DIST_DIR=.next-sandbox exec next dev -p ${PORT:-3001}'",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@nodus/contract-client": "workspace:*",
+    "@nodus/db": "workspace:*",
+    "@nodus/indexer": "workspace:*",
+    "@nodus/solver": "workspace:*",
+    "@nodus/stellar": "workspace:*",
+    "@stellar/stellar-sdk": "16.3.1",
+    "@tanstack/react-query": "^5.104.1",
+    "drizzle-orm": "0.45.3",
+    "motion": "^14.0.0",
+    "next": "16.3.8",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "0.0.1",
+    "smart-account-kit": "0.8.0"
+  },
+  "devDependencies": {
+    "@happy-dom/global-registrator": "^20.14.5",
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@types/bun": "latest",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.8",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "ignoreScripts": [
+    "sharp",
+    "unrs-resolver"
+  ],
+  "trustedDependencies": [
+    "sharp",
+    "unrs-resolver"
+  ]
+}

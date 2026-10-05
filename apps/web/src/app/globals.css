@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Paper and ink, with one colour for debt and one for what gets freed. */
+  --color-paper: #f6f4ef;
+  --color-surface: #ffffff;
+  --color-ink: #1b1a17;
+  --color-muted: #6f6a5f;
+  --color-line: #e3dfd4;
+  --color-debt: #b4532a;
+  --color-debt-soft: #f6e6dc;
+  --color-free: #1f7a4d;
+  --color-free-soft: #e1f1e7;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
