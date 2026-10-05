@@ -1,0 +1,27 @@
+{
+  "name": "@nodus/e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "settle": "bun run src/settle.ts",
+    "netting": "bun run src/netting.ts",
+    "typecheck": "tsc --noEmit",
+    "deploy": "bun run src/deploy.ts",
+    "web": "bun run src/web.ts",
+    "neighbors": "bun run src/neighbors.ts"
+  },
+  "dependencies": {
+    "@nodus/contract-client": "workspace:*",
+    "@nodus/db": "workspace:*",
+    "@nodus/indexer": "workspace:*",
+    "@nodus/solver": "workspace:*",
+    "@nodus/stellar": "workspace:*",
+    "@stellar/stellar-sdk": "16.3.1",
+    "drizzle-orm": "0.45.3",
+    "smart-account-kit": "0.8.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.9.0"
+  }
+}
