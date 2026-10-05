@@ -1,0 +1,10 @@
+target/
+node_modules/
+test_snapshots/
+.env
+.env.*
+!.env.example
+.next/
+dist/
+*.log
+.claude/

@@ -1,0 +1,24 @@
+{
+  "name": "nodus",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "contract:build": "stellar contract build --optimize",
+    "contract:test": "cargo test",
+    "contract:bindings": "stellar contract bindings typescript --wasm target/wasm32v1-none/release/nodus.wasm --output-dir target/bindings --overwrite && cp target/bindings/src/index.ts packages/contract-client/src/index.ts",
+    "test": "bun run --filter '*' test",
+    "typecheck": "bun run --filter '*' typecheck",
+    "e2e:settle": "bun run --filter @nodus/e2e settle",
+    "e2e:netting": "bun run --filter @nodus/e2e netting",
+    "dev": "bun run --filter @nodus/web dev",
+    "deploy:testnet": "bun run --filter @nodus/e2e deploy",
+    "dev:sandbox": "bun run --filter @nodus/web dev:sandbox",
+    "deploy:sandbox": "bun run --filter @nodus/e2e deploy --out ../../apps/web/.env.sandbox",
+    "db:migrate": "bun run --filter @nodus/db migrate",
+    "e2e:web": "bun run --filter @nodus/e2e web",
+    "demo:neighbors": "bun run --filter @nodus/e2e neighbors"
+  }
+}
