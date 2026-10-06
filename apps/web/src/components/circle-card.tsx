@@ -6,9 +6,10 @@ import { signCircle } from "@/lib/actions";
 import { TOKEN_SYMBOL } from "@/lib/config";
 import { formatAmount } from "@/lib/format";
 import { useAction } from "@/lib/hooks";
+import { INK } from "@/lib/tones";
 import type { CircleView } from "@/lib/types";
-import { CircleGraph, initials, netInWords } from "./circle-graph";
-import { Amount, Button, Card, Chip, Problem } from "./ui";
+import { CircleGraph, netInWords } from "./circle-graph";
+import { Amount, Avatar, Bloom, Button, Chip, Problem, SEGMENTS, segment } from "./ui";
 
 interface Props {
   circle: CircleView;
@@ -28,6 +29,13 @@ function timeLeft(ledgers: number): string {
   return `${Math.round(minutes / 60)} horas`;
 }
 
+/** Names the businesses the party knows and counts the ones it does not. */
+function inWords(names: string[], unnamed: number): string {
+  if (unnamed === 0) return names.join(", ");
+  const others = `${unnamed} ${unnamed === 1 ? "negocio" : "negocios"}${names.length > 0 ? " más" : ""}`;
+  return names.length > 0 ? `${names.join(", ")} y ${others}` : others;
+}
+
 /** A circle of debts: what settling it does, who has signed, and the button to sign. */
 export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props) {
   const status = circle.proposal?.status;
@@ -43,50 +51,60 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
   const sign = useAction(me, () => signCircle(shown, me));
   const mine = shown.parties.find((party) => party.address === me);
   const signedCount = shown.parties.filter((party) => party.signed).length;
-  const missing = shown.parties.filter((party) => !party.signed).map((party) => nameOf(party.address));
   const movesMoney = shown.moved !== "0";
+
+  // A business knows by name only the ones it deals with in the circle.
+  const dealsWith = new Set(shown.edges.flatMap((edge) => (edge.from === me ? [edge.to] : edge.to === me ? [edge.from] : [])));
+  const known = (address: string) => address === me || dealsWith.has(address);
+  const missing = shown.parties.filter((party) => !party.signed);
+  const missingInWords = inWords(
+    missing.filter((party) => known(party.address)).map((party) => nameOf(party.address)),
+    missing.filter((party) => !known(party.address)).length,
+  );
 
   const net = BigInt(mine?.net ?? "0");
   const shortfall = balance !== null && net < 0n && balance < -net ? -net - balance : 0n;
 
   return (
-    <Card className="grid items-center gap-6 lg:grid-cols-2">
-      <div className="hidden justify-center sm:flex">
-        <CircleGraph circle={shown} me={me} nameOf={nameOf} />
-      </div>
-      {/* On a phone the names do not fit beside the nodes, so they go in a list below. */}
-      <div className="sm:hidden">
-        <CircleGraph circle={shown} me={me} nameOf={nameOf} labels={false} />
-        <ul className="mt-2 flex flex-col gap-2 text-sm">
-          {shown.parties.map((party) => (
-            <li key={party.address} className="flex items-center gap-3">
-              <span className="grid size-8 shrink-0 place-items-center rounded-full border border-ink text-xs font-semibold">
-                {initials(nameOf(party.address))}
-              </span>
-              <span className="min-w-0 flex-1 truncate font-medium">
-                {nameOf(party.address)}
-                {party.address === me && " (tú)"}
-              </span>
-              <span className="text-muted tabular-nums">{netInWords(BigInt(party.net), settled)}</span>
-            </li>
-          ))}
-        </ul>
+    <article className="grid overflow-hidden rounded-3xl border border-hairline bg-card lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)]">
+      <div className="relative isolate flex items-center justify-center overflow-hidden border-b border-hairline bg-canvas-soft px-2 py-4 lg:border-b-0 lg:border-r">
+        <Bloom color={settled ? INK.free.bloom : INK.neutral.bloom} className="left-1/2 top-1/2 -z-10 size-[82%] -translate-x-1/2 -translate-y-1/2 opacity-60" />
+        <Bloom color={settled ? "var(--color-sky)" : INK.debt.bloom} className="left-[18%] top-[62%] -z-10 size-[46%] opacity-50" />
+        <div className="hidden w-full justify-center sm:flex">
+          <CircleGraph circle={shown} me={me} nameOf={nameOf} />
+        </div>
+        {/* On a phone the names do not fit beside the nodes, so they go in a list below. */}
+        <div className="w-full sm:hidden">
+          <CircleGraph circle={shown} me={me} nameOf={nameOf} labels={false} />
+          <ul className="mt-1 flex flex-col gap-2.5 px-4 pb-2 text-sm">
+            {shown.parties.filter((party) => known(party.address)).map((party) => (
+              <li key={party.address} className="flex items-center gap-3">
+                <Avatar name={nameOf(party.address)} size="sm" tone={party.address === me ? "ink" : "neutral"} />
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {nameOf(party.address)}
+                  {party.address === me && " (tú)"}
+                </span>
+                {party.address === me && <span className="text-muted tabular-nums">{netInWords(BigInt(party.net), settled)}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-6 p-6 sm:p-8">
         <div>
           {settled ? (
             <Chip tone="free">Desanudado</Chip>
           ) : status === "submitted" ? (
             <Chip tone="free">Liquidando…</Chip>
           ) : signing ? (
-            <Chip tone="debt">
+            <Chip tone="credit">
               Firmando · {signedCount} de {shown.parties.length}
             </Chip>
           ) : (
-            <Chip tone="debt">Círculo detectado</Chip>
+            <Chip>Círculo detectado</Chip>
           )}
-          <h3 className="mt-3 text-2xl font-semibold tracking-tight text-balance">
+          <h3 className="display mt-4 text-[28px] text-balance sm:text-[32px]">
             {settled ? "Se cancelaron " : "Se cancelan "}
             <Amount value={shown.cleared} />{" "}
             {movesMoney ? (
@@ -97,7 +115,7 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
               "sin mover dinero."
             )}
           </h3>
-          <p className="mt-2 text-sm text-muted">
+          <p className="mt-3 text-[15px] leading-relaxed text-body">
             {settled
               ? `Los ${shown.parties.length} negocios firmaron y una sola transacción canceló las deudas${movesMoney ? " y pagó los saldos netos" : ""}.`
               : movesMoney
@@ -107,7 +125,7 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
         </div>
 
         {canChoose && (
-          <div role="radiogroup" aria-label="Cómo liquidar el círculo" className="flex gap-1 self-start rounded-full bg-paper p-1 text-sm">
+          <div role="radiogroup" aria-label="Cómo liquidar el círculo" className={`${SEGMENTS} self-start`}>
             {[
               { label: "Liquidar todo", value: false },
               { label: "Sin mover dinero", value: true },
@@ -118,9 +136,7 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
                 aria-checked={withoutMoney === choice.value}
                 disabled={sign.isPending}
                 onClick={() => setWithoutMoney(choice.value)}
-                className={`rounded-full px-4 py-1.5 font-medium transition-colors ${
-                  withoutMoney === choice.value ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"
-                }`}
+                className={segment(withoutMoney === choice.value)}
               >
                 {choice.label}
               </button>
@@ -129,69 +145,82 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
         )}
 
         {mine && (
-          <dl className="grid grid-cols-3 gap-3 rounded-2xl bg-paper p-4 text-sm">
-            <div>
-              <dt className="text-muted">{settled ? "Dejaste de deber" : "Dejas de deber"}</dt>
-              <dd className="mt-1 text-lg font-semibold">
-                <Amount value={mine.owesLess} symbol={false} />
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted">{settled ? "Dejaron de deberte" : "Dejan de deberte"}</dt>
-              <dd className="mt-1 text-lg font-semibold">
-                <Amount value={mine.owedLess} symbol={false} />
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted">{net > 0n ? (settled ? "Recibiste" : "Recibes") : settled ? "Pagaste" : "Pagas"}</dt>
-              <dd className={`mt-1 text-lg font-semibold ${net > 0n ? "text-free" : ""}`}>
-                <Amount value={net < 0n ? -net : net} symbol={false} />
-              </dd>
-            </div>
+          <dl className="grid grid-cols-3 divide-x divide-hairline rounded-2xl border border-hairline">
+            {[
+              { label: settled ? "Dejaste de deber" : "Dejas de deber", value: mine.owesLess, tone: "" },
+              { label: settled ? "Dejaron de deberte" : "Dejan de deberte", value: mine.owedLess, tone: "" },
+              {
+                label: net > 0n ? (settled ? "Recibiste" : "Recibes") : settled ? "Pagaste" : "Pagas",
+                value: net < 0n ? -net : net,
+                tone: net > 0n ? INK.free.text : "",
+              },
+            ].map((figure) => (
+              <div key={figure.label} className="px-4 py-3.5">
+                <dt className="text-[13px] text-muted">{figure.label}</dt>
+                <dd className={`display mt-1 text-[26px] ${figure.tone}`}>
+                  <Amount value={figure.value} symbol={false} />
+                </dd>
+              </div>
+            ))}
           </dl>
         )}
 
-        {settled ? (
-          <a
-            href={`${EXPLORER_URL}/tx/${shown.proposal?.txHash}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm font-medium text-free underline underline-offset-4"
-          >
-            Ver la transacción en la red
-          </a>
-        ) : status === "submitted" ? (
-          <p className="text-sm text-muted">Están todas las firmas. Enviando la liquidación a la red…</p>
-        ) : !mine ? (
-          <p className="text-sm text-muted">Tu negocio no participa en este círculo.</p>
-        ) : mine.signed ? (
-          <p className="text-sm text-muted">
-            Ya firmaste. {missing.length === 1 ? "Falta la firma de" : "Faltan las firmas de"} {missing.join(", ")}.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {shortfall > 0n && (
-              <Problem>
-                Te faltan {formatAmount(shortfall)} {TOKEN_SYMBOL} para pagar tu saldo neto.
-                {canChoose && " Puedes compensar sin mover dinero."}
-              </Problem>
-            )}
-            <Button onClick={() => sign.mutate(undefined)} busy={sign.isPending} disabled={shortfall > 0n} className="self-start">
-              Firmar con passkey
-            </Button>
-          </div>
-        )}
+        <div className="mt-auto flex flex-col gap-3">
+          {!settled && shown.parties.length > 0 && (
+            <div className="flex items-center gap-3 text-[13px] text-muted">
+              <span className="flex gap-1" aria-hidden>
+                {shown.parties.map((party) => (
+                  <span key={party.address} className={`h-1.5 w-5 rounded-full ${party.signed ? INK.free.background : "bg-hairline-strong"}`} />
+                ))}
+              </span>
+              <span>
+                {signedCount} de {shown.parties.length} firmas
+              </span>
+            </div>
+          )}
 
-        {signing && ledger !== undefined && shown.proposal && (
-          <p className="text-xs text-muted">
-            Quedan cerca de {timeLeft(shown.proposal.expirationLedger - ledger)} para reunir las firmas.
-          </p>
-        )}
+          {settled ? (
+            <a
+              href={`${EXPLORER_URL}/tx/${shown.proposal?.txHash}`}
+              target="_blank"
+              rel="noreferrer"
+              className={`self-start text-[15px] font-medium underline underline-offset-4 ${INK.free.text}`}
+            >
+              Ver la transacción en la red
+            </a>
+          ) : status === "submitted" ? (
+            <p className="text-sm text-body">Están todas las firmas. Enviando la liquidación a la red…</p>
+          ) : !mine ? (
+            <p className="text-sm text-body">Tu negocio no participa en este círculo.</p>
+          ) : mine.signed ? (
+            <p className="text-sm text-body">
+              Ya firmaste. {missing.length === 1 ? "Falta la firma de" : "Faltan las firmas de"} {missingInWords}.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {shortfall > 0n && (
+                <Problem>
+                  Te faltan {formatAmount(shortfall)} {TOKEN_SYMBOL} para pagar tu saldo neto.
+                  {canChoose && " Puedes compensar sin mover dinero."}
+                </Problem>
+              )}
+              <Button onClick={() => sign.mutate(undefined)} busy={sign.isPending} disabled={shortfall > 0n} className="self-start">
+                Firmar con passkey
+              </Button>
+            </div>
+          )}
 
-        <Problem>
-          {sign.error ?? (status === "failed" && `El intento anterior no se completó: ${shown.proposal?.error}`)}
-        </Problem>
+          {signing && ledger !== undefined && shown.proposal && (
+            <p className="text-[13px] text-muted">
+              Quedan cerca de {timeLeft(shown.proposal.expirationLedger - ledger)} para reunir las firmas.
+            </p>
+          )}
+
+          <Problem>
+            {sign.error ?? (status === "failed" && `El intento anterior no se completó: ${shown.proposal?.error}`)}
+          </Problem>
+        </div>
       </div>
-    </Card>
+    </article>
   );
 }

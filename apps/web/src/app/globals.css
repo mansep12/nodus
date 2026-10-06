@@ -1,26 +1,145 @@
 @import "tailwindcss";
 
+/*
+ * The tokens of DESIGN.md: an off-white canvas, warm near-black ink, white
+ * cards outlined by hairlines, and pastel blooms as the only atmosphere.
+ */
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-newsreader);
+  --font-mono: var(--font-plex-mono);
 
-  /* Paper and ink, with one colour for debt and one for what gets freed. */
-  --color-paper: #f6f4ef;
-  --color-surface: #ffffff;
-  --color-ink: #1b1a17;
-  --color-muted: #6f6a5f;
-  --color-line: #e3dfd4;
-  --color-debt: #b4532a;
-  --color-debt-soft: #f6e6dc;
-  --color-free: #1f7a4d;
-  --color-free-soft: #e1f1e7;
+  --color-canvas: #f5f5f5;
+  --color-canvas-soft: #fafafa;
+  --color-card: #ffffff;
+  --color-surface-strong: #f0efed;
+  --color-ink: #0c0a09;
+  --color-primary: #292524;
+  --color-body: #4e4e4e;
+  --color-muted: #777169;
+  --color-muted-soft: #a8a29e;
+  --color-hairline: #e7e5e4;
+  --color-hairline-soft: #f0efed;
+  --color-hairline-strong: #d6d3d1;
+  --color-error: #dc2626;
+  --color-error-deep: #b91c1c;
+
+  --color-mint: #a7e5d3;
+  --color-peach: #f4c5a8;
+  --color-lavender: #c8b8e0;
+  --color-sky: #a8c8e8;
+  --color-rose: #e8b8c4;
+
+  /*
+   * The inks the books are kept in, each the deep end of one of the blooms:
+   * blue for what a business is owed, red for what it owes, and green for
+   * what is done (signed, settled). They colour drawings, never buttons.
+   */
+  --color-credit: #2d5fa6;
+  --color-credit-deep: #234b85;
+  --color-credit-soft: #e9f1fa;
+  --color-debt: #c4552d;
+  --color-debt-deep: #9c3f1e;
+  --color-debt-soft: #fbece3;
+  --color-free: #197a55;
+  --color-free-deep: #135f43;
+  --color-free-soft: #e3f5ee;
+
+  --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.04);
+  --shadow-lift: 0 12px 32px rgba(12, 10, 9, 0.07);
 }
 
 body {
-  background: var(--color-paper);
+  background: var(--color-canvas);
   color: var(--color-ink);
+  letter-spacing: 0.01em;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-primary);
+  color: #fff;
 }
 
 button:not(:disabled) {
   cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+@layer components {
+  /* Display copy: the serif, light and tight. Never bold. */
+  .display {
+    font-family: var(--font-serif);
+    font-weight: 300;
+    letter-spacing: -0.022em;
+    line-height: 1.08;
+    font-variation-settings: "opsz" 72;
+  }
+
+  /* The label over a section or a figure. */
+  .eyebrow {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* What lifts a node of a drawing off what is behind it. */
+  .lift {
+    filter: drop-shadow(0 2px 5px rgb(12 10 9 / 0.1));
+  }
+  .lift-high {
+    filter: drop-shadow(0 6px 14px rgb(12 10 9 / 0.22));
+  }
+
+  .field {
+    height: 44px;
+    border-radius: 8px;
+    border: 1px solid var(--color-hairline-strong);
+    background: var(--color-card);
+    padding: 0 14px;
+    font-size: 15px;
+    outline: none;
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .field:focus {
+    border-color: var(--color-ink);
+    box-shadow: inset 0 0 0 1px var(--color-ink);
+  }
+}
+
+/*
+ * A bloom: a soft blur of colour with nothing in it, behind a drawing or a
+ * headline. `--bloom` is its colour.
+ */
+.bloom {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(closest-side, var(--bloom) 0%, color-mix(in srgb, var(--bloom) 45%, transparent) 45%, transparent 100%);
+  filter: blur(24px);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bloom {
+    animation: drift 18s ease-in-out infinite alternate;
+  }
+  .bloom:nth-child(2n) {
+    animation-duration: 23s;
+    animation-direction: alternate-reverse;
+  }
+}
+
+@keyframes drift {
+  from {
+    transform: translate3d(-3%, -2%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(4%, 3%, 0) scale(1.08);
+  }
 }

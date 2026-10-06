@@ -21,3 +21,17 @@ export function parseAmount(text: string): bigint | null {
 }
 
 export const shortAddress = (address: string) => `${address.slice(0, 4)}…${address.slice(-4)}`;
+
+/** The two letters a business goes by where its name does not fit. */
+export const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("");
+
+/** `part` as a whole percentage of `whole`. */
+export const percent = (part: bigint, whole: bigint) => (whole === 0n ? 0 : Math.round(Number((part * 1000n) / whole) / 10));
+
+/** A name cut to `length` characters. */
+export const clip = (name: string, length: number) => (name.length > length ? `${name.slice(0, length - 1).trimEnd()}…` : name);
