@@ -14,7 +14,7 @@ mock.module("@/lib/api", () => ({
   post: async () => ({}),
   del: async () => ({}),
 }));
-const { CircleCard } = await import("./circle-card");
+const { CircleCard, inWords } = await import("./circle-card");
 const { History } = await import("./history");
 
 const [BAKERY, MILL, CARRIER] = ["bakery", "mill", "carrier"];
@@ -198,5 +198,29 @@ describe("History", () => {
   test("shows nothing while there are no settlements", () => {
     const { container } = show(<History settlements={[]} me={BAKERY} nameOf={nameOf} />);
     expect(container.textContent).toBe("");
+  });
+});
+
+describe("inWords", () => {
+  test("names a single business", () => {
+    expect(inWords(["Molino Andes"], 0)).toBe("Molino Andes");
+  });
+
+  test("joins two names with y", () => {
+    expect(inWords(["Molino Andes", "Fletes Ruta 5"], 0)).toBe("Molino Andes y Fletes Ruta 5");
+  });
+
+  test("separates the names with commas and the last one with y", () => {
+    expect(inWords(["Panadería Sur", "Molino Andes", "Fletes Ruta 5"], 0)).toBe("Panadería Sur, Molino Andes y Fletes Ruta 5");
+  });
+
+  test("counts the businesses it cannot name after the ones it can", () => {
+    expect(inWords(["Molino Andes"], 2)).toBe("Molino Andes y 2 negocios más");
+    expect(inWords(["Molino Andes"], 1)).toBe("Molino Andes y 1 negocio más");
+  });
+
+  test("only counts them when it can name none", () => {
+    expect(inWords([], 1)).toBe("1 negocio");
+    expect(inWords([], 3)).toBe("3 negocios");
   });
 });

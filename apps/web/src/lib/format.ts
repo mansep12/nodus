@@ -17,7 +17,10 @@ export function formatAmount(value: bigint | string): string {
  * cents. Null if it is not a positive amount.
  */
 export function parseAmount(text: string): bigint | null {
-  const match = /^(\d+)(?:,(\d{1,2}))?$/.exec(text.trim().replaceAll(".", ""));
+  const typed = text.trim();
+  // Dots only group thousands; a dot as the decimal point is refused rather than read ten times too large.
+  if (!/^(\d{1,3}(\.\d{3})+|\d+)(,\d{1,2})?$/.test(typed)) return null;
+  const match = /^(\d+)(?:,(\d{1,2}))?$/.exec(typed.replaceAll(".", ""));
   if (!match) return null;
   const amount = BigInt(match[1]!) * UNIT + BigInt((match[2] ?? "").padEnd(TOKEN_DECIMALS, "0"));
   return amount > 0n ? amount : null;
@@ -28,6 +31,7 @@ export const shortAddress = (address: string) => `${address.slice(0, 4)}…${add
 /** The two letters a business goes by where its name does not fit. */
 export const initials = (name: string) =>
   name
+    .trim()
     .split(/\s+/)
     .slice(0, 2)
     .map((word) => word[0]?.toUpperCase() ?? "")
