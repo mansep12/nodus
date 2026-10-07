@@ -15,38 +15,68 @@ const BUTTON_STYLES = {
 };
 
 const BUTTON_SIZES = {
-  md: "h-10 px-5 text-[15px]",
-  sm: "h-8 px-3.5 text-[13px]",
+  md: "h-10 px-5 text-body-sm",
+  sm: "h-8 px-3.5 text-caption",
+  /** As tall as a form field, to sit beside one. */
+  lg: "h-11 px-6 text-body-sm",
 };
 
+type ButtonVariant = keyof typeof BUTTON_STYLES;
+type ButtonSize = keyof typeof BUTTON_SIZES;
+
+/** The look of a button, for the rare link that has to look like one. */
+export function buttonClass(variant: ButtonVariant = "primary", size: ButtonSize = "md"): string {
+  const shape = variant === "quiet" ? "text-sm" : `rounded-full font-medium ${BUTTON_SIZES[size]}`;
+  return `inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors ${shape} ${BUTTON_STYLES[variant]}`;
+}
+
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: keyof typeof BUTTON_STYLES;
-  size?: keyof typeof BUTTON_SIZES;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   /** Shows that the action is under way and prevents repeating it. */
   busy?: boolean;
 }
 
 export function Button({ variant = "primary", size = "md", busy, disabled, className = "", children, ...props }: ButtonProps) {
-  const shape = variant === "quiet" ? "text-sm" : `rounded-full font-medium ${BUTTON_SIZES[size]}`;
   return (
-    <button
-      {...props}
-      disabled={disabled || busy}
-      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors ${shape} ${BUTTON_STYLES[variant]} ${className}`}
-    >
+    <button {...props} disabled={disabled || busy} className={`${buttonClass(variant, size)} ${className}`}>
       {busy && <span className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />}
       {children}
     </button>
   );
 }
 
-export function Card({ className = "", children }: { className?: string; children: ReactNode }) {
-  return <section className={`rounded-2xl border border-hairline bg-card p-6 sm:p-8 ${className}`}>{children}</section>;
+const CARD_PADDING = {
+  md: "p-6 sm:p-8",
+  sm: "p-5",
+  /** For rows and figures that go edge to edge. */
+  none: "",
+};
+
+interface CardProps {
+  padding?: keyof typeof CARD_PADDING;
+  className?: string;
+  children: ReactNode;
+}
+
+export function Card({ padding = "md", className = "", children }: CardProps) {
+  return <section className={`rounded-2xl border border-hairline bg-card ${CARD_PADDING[padding]} ${className}`}>{children}</section>;
+}
+
+const EYEBROW_SIZES = {
+  md: "",
+  sm: "text-tiny",
+};
+
+interface EyebrowProps {
+  size?: keyof typeof EYEBROW_SIZES;
+  className?: string;
+  children: ReactNode;
 }
 
 /** The label over a section or a figure. */
-export function Eyebrow({ className = "", children }: { className?: string; children: ReactNode }) {
-  return <p className={`eyebrow text-muted ${className}`}>{children}</p>;
+export function Eyebrow({ size = "md", className = "", children }: EyebrowProps) {
+  return <p className={`eyebrow text-muted ${EYEBROW_SIZES[size]} ${className}`}>{children}</p>;
 }
 
 interface PageHeaderProps {
@@ -81,17 +111,19 @@ export const segment = (on: boolean) =>
 export function Chip({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase leading-none tracking-[0.07em] ${INK[tone].softBackground} ${INK[tone].text}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-label font-semibold uppercase leading-none tracking-[0.07em] ${INK[tone].softBackground} ${INK[tone].text}`}
     >
       {children}
     </span>
   );
 }
 
+/** An amount with its symbol set small beside it. Read aloud with a pause between them, "270 USDC", which the text alone has not. */
 export function Amount({ value, symbol = true }: { value: bigint | string; symbol?: boolean }) {
+  const figure = formatAmount(value);
   return (
-    <span className="tabular-nums">
-      {formatAmount(value)}
+    <span className="tabular-nums" aria-label={symbol ? `${figure} ${TOKEN_SYMBOL}` : undefined}>
+      {figure}
       {symbol && (
         <span className="ml-[0.28em] font-sans text-[clamp(10px,0.34em,14px)] font-medium tracking-[0.06em] text-muted">
           {TOKEN_SYMBOL}

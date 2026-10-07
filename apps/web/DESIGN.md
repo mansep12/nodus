@@ -527,20 +527,37 @@ Everything above is the reference system (ElevenLabs, installed with `npx getdes
 
 ### Where things live
 
-| What                                                                     | Where                                                     | Rule                                                                                                                                                                                 |
-| ------------------------------------------------------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Colours, fonts, shadows                                                  | `src/app/globals.css` (`@theme`)                          | The only place with hex values. Token names follow this file: `canvas`, `card`, `surface-strong`, `ink`, `primary`, `body`, `muted`, `muted-soft`, `hairline*`, and the five blooms. |
-| Type roles and form fields                                               | `globals.css` (`.display`, `.eyebrow`, `.field`, `.lift`) | Display copy uses `.display`; section labels use `.eyebrow`.                                                                                                                         |
-| The three inks                                                           | `src/lib/tones.ts` (`INK`)                                | Components take a tone and look its classes up there. Never write `stroke-credit` and the like inline.                                                                               |
-| Buttons, cards, chips, avatars, blooms, page headers, empty states, logo | `src/components/ui.tsx`                                   | Screens compose these; they do not restyle them.                                                                                                                                     |
-| What each screen says about a business                                   | `src/lib/books.ts`                                        | Screens read `readBooks` / `readInbox`, not the raw state.                                                                                                                           |
-| Made-up data for every screen                                            | `src/lib/fixtures.ts`, shown at `/muestra` in development | Add a scenario there to design a new state.                                                                                                                                          |
+| What                                                                     | Where                                                     | Rule                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------ | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Colours, fonts, shadows                                                  | `src/app/globals.css` (`@theme`)                          | The only place with hex values. Token names follow this file: `canvas`, `card`, `surface-strong`, `ink`, `primary`, `body`, `muted`, `muted-soft`, `hairline*`, and the five blooms.                                                                                                   |
+| Type sizes below display                                                 | `globals.css` (`@theme`, `--text-*`)                      | `text-tiny`, `text-label`, `text-caption`, `text-body-sm`, `text-title` (see "Type scale"). No `text-[13px]` in components.                                                                                                                                                            |
+| Type roles and form fields                                               | `globals.css` (`.display`, `.eyebrow`, `.field`, `.lift`) | Display copy uses `.display`; section labels use `.eyebrow`.                                                                                                                                                                                                                           |
+| The three inks                                                           | `src/lib/tones.ts` (`INK`)                                | Components take a tone and look its classes up there. Never write `stroke-credit` and the like inline.                                                                                                                                                                                 |
+| Buttons, cards, chips, avatars, blooms, page headers, empty states, logo | `src/components/ui.tsx`                                   | Screens compose these; they do not restyle them. `Button` has `size="sm" \| "md" \| "lg"`, `Card` has `padding="md" \| "sm" \| "none"`, `Eyebrow` has `size="md" \| "sm"`; a link that must look like a button takes `buttonClass(variant, size)`. Never `!h-11`, `!p-0` or `!text-*`. |
+| The landing page                                                         | `src/components/landing/`, composed by `welcome.tsx`      | One file per band (`hero`, `tangle`, `how-it-works`, `benefits`, `trust`, `faq`, `closing`, `footer`). Everything it may claim is in `facts.ts`; there are no figures of use.                                                                                                          |
+| What each screen says about a business                                   | `src/lib/books.ts`                                        | Screens read `readBooks` / `readInbox`, not the raw state.                                                                                                                                                                                                                             |
+| Made-up data for every screen                                            | `src/lib/fixtures.ts`, shown at `/muestra` in development | Add a scenario there to design a new state.                                                                                                                                                                                                                                            |
 
 ### Substitutions
 
 - **Display**: Newsreader at weight 300 stands in for Waldenburg (EB Garamond, the documented substitute, has no weight 300 on Google Fonts). Italic is used for one emphasised phrase per headline, never for whole headlines.
 - **Body**: Inter, as specified, with `letter-spacing: 0.01em`.
 - **Monospace**: IBM Plex Mono, only for what is copied letter by letter (addresses, transaction hashes).
+- **Muted**: `#716b63` instead of the reference's `#777169`, which reads 4.43:1 on the canvas and 4.20:1 on `surface-strong`, under AA (4.5:1) for running text. The replacement keeps the warm hue and reads 4.83:1 and 4.59:1. `muted-soft` stays as it is and is only for disabled text.
+
+### Type scale
+
+The reference table above is kept for display copy, which takes Tailwind's own steps (`text-2xl` 24, `text-4xl` 36, `text-5xl` 48, and 56 or 64 for the one hero). Below that, Nodus writes smaller text in five sizes, all tokens in `globals.css` so that no component writes a pixel size:
+
+| Token     | Size | Line height | Use                                                                       |
+| --------- | ---- | ----------- | ------------------------------------------------------------------------- |
+| `tiny`    | 11px | 1.4         | Addresses in mono, small eyebrows (`Eyebrow size="sm"`), text in drawings |
+| `label`   | 12px | 1.4         | Uppercase labels: `.eyebrow`, `Chip`                                      |
+| `caption` | 13px | 1.5         | Captions, footers, the line under a figure, small buttons                 |
+| `body-sm` | 15px | 1.5         | Running text in cards, form fields, buttons, the top navigation           |
+| `title`   | 17px | 1.4         | Titles inside cards, FAQ questions, the logo                              |
+
+Tailwind's `text-sm` (14) and `text-base` (16) sit between them for ordinary body copy. An `Amount` carries an `aria-label` with a space before the symbol ("270 USDC"), which the visible text, set tight, has not.
 
 ### The inks (an addition)
 
