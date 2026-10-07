@@ -19,6 +19,8 @@ export function clientIp(request: Request): string {
  * `windowMs`. Atomic: concurrent requests cannot slip past the limit together.
  */
 export async function consume(key: string, limit: number, windowMs: number): Promise<void> {
+  // Automated tests create accounts and ask for test tokens far more often than a person would.
+  if (process.env.NODUS_RATE_LIMITS === "off" && process.env.NODE_ENV !== "production") return;
   const db = await getDb();
   const resetAt = new Date(Date.now() + windowMs);
   const [row] = await db
@@ -45,7 +47,7 @@ export const LIMITS = {
   faucetPerAddress: (address: string) => consume(`faucet:${address}`, 3, DAY),
   faucetPerIp: (ip: string) => consume(`faucet:ip:${ip}`, 20, DAY),
   /** Accounts the relayer pays for: creating them is the costly call. */
-  accountsPerIp: (ip: string) => consume(`relay:create:${ip}`, 10, HOUR),
+  accountsPerIp: (ip: string) => consume(`relay:create:${ip}`, 30, HOUR),
   relayPerIp: (ip: string) => consume(`relay:${ip}`, 120, HOUR),
   /** Passkey challenges and sessions. */
   sessionPerIp: (ip: string) => consume(`session:${ip}`, 60, HOUR),

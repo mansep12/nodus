@@ -10,7 +10,7 @@ import { xdr } from "@stellar/stellar-sdk";
 import { addressCredentials } from "@nodus/stellar";
 import { MemoryStorage } from "smart-account-kit";
 import type { CircleView, SigningRequest } from "@nodus/api";
-import { connectApp } from "./app.ts";
+import { connectApp, type Business } from "./app.ts";
 import { UNIT, log } from "./harness.ts";
 
 const { api, readState, join, login, owe, pay, sign, newKit } = await connectApp(new URL(process.argv[2] ?? "http://localhost:3000"));
@@ -41,7 +41,9 @@ async function openCircle(): Promise<CircleView | undefined> {
   const { circles } = await readState(bakery);
   return circles.find((circle) => circle.proposal?.status !== "settled" && circle.parties.every((party) => ours.has(party.address)));
 }
-const amountOf = async (id: string) => (await readState(bakery)).obligations.find((obligation) => obligation.id === id)!;
+/** A debt as one of its parties sees it: nobody else is shown it. */
+const amountOf = async (id: string, who: Business = bakery) =>
+  (await readState(who)).obligations.find((obligation) => obligation.id === id)!;
 const of = (amount: bigint) => (amount * UNIT).toString();
 
 // --- A circle settled without moving money: nobody needs to hold the token.
@@ -98,7 +100,11 @@ let state = await readState(bakery);
 assert(state.settlements[0]?.circle.cleared === of(240n) && state.settlements[0].circle.moved === "0", "it settled 240 moving nothing");
 assert(state.settlementsTotal === 1 && state.network.settlements >= 1, "the settlement counts for the business and for the network");
 assert((await amountOf(ab)).amount === of(20n) && (await amountOf(ab)).status === "accepted", "20 are still owed to the mill");
-assert((await amountOf(bc)).status === "settled", "the debt to the carrier is gone");
+assert((await amountOf(bc, mill)).status === "settled", "the debt to the carrier is gone");
+assert(
+  (await readState(bakery)).obligations.every((o) => o.id !== bc),
+  "the bakery is not shown a debt between the other two",
+);
 assert((await amountOf(ca)).amount === of(10n), "10 are still owed to the bakery");
 assert((await openCircle()) === undefined, "what is left does not close a circle");
 log(`Settled without money: ${state.settlements[0].txHash}`);
@@ -116,7 +122,13 @@ for (const business of businesses) await sign(circle, business);
 
 state = await readState(bakery);
 assert(state.settlements[0]?.circle.cleared === of(60n) && state.settlements[0].circle.moved === of(20n), "it settled 60 moving 20");
-for (const id of [ab, ca, bc2]) assert((await amountOf(id)).status === "settled", `obligation ${id} is settled`);
+for (const [id, who] of [
+  [ab, bakery],
+  [ca, bakery],
+  [bc2, mill],
+] as const) {
+  assert((await amountOf(id, who)).status === "settled", `obligation ${id} is settled`);
+}
 const balances = await Promise.all(businesses.map(async (business) => (await readState(business)).balance));
 assert(balances.join() === [of(990n), of(990n), of(20n)].join(), `balances after paying the nets (got ${balances.join()})`);
 log(`Settled in full: ${state.settlements[0].txHash}`);

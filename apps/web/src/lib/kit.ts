@@ -71,7 +71,8 @@ export async function describeCredential(credentialId: string): Promise<KitCrede
     contractId: stored.contractId,
     contextRuleId: stored.contextRuleId ?? 0,
     isPrimary: stored.isPrimary !== false,
-    label: stored.nickname ?? "",
+    // The kit names passkeys after the account and the date; the app labels them by device or person.
+    label: "",
     birthWasmHash: stored.birthWasmHash,
     creationTransactionHash: stored.creationTransactionHash,
     creationLedger: stored.creationLedger,
