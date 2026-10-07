@@ -12,6 +12,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@nodus/api": "workspace:*",
     "@nodus/contract-client": "workspace:*",
     "@nodus/db": "workspace:*",
     "@nodus/indexer": "workspace:*",

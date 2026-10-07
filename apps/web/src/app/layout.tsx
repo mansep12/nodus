@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Inter, Newsreader } from "next/font/google";
 import "./globals.css";
 
@@ -23,9 +23,23 @@ const mono = IBM_Plex_Mono({
   weight: ["400", "500"],
 });
 
+const DESCRIPTION = "Desanuda las deudas entre negocios: encuentra los círculos de deuda, los cancela a la vez y mueve solo el saldo neto.";
+
+/** Where the app is published, for absolute links in shared cards. */
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`);
+
 export const metadata: Metadata = {
-  title: "Nodus",
-  description: "Desanuda las deudas entre negocios: cancela círculos de deuda y paga solo el saldo neto.",
+  metadataBase: APP_URL ? new URL(APP_URL) : undefined,
+  title: { default: "Nodus", template: "%s · Nodus" },
+  description: DESCRIPTION,
+  applicationName: "Nodus",
+  openGraph: { type: "website", siteName: "Nodus", title: "Nodus", description: DESCRIPTION, locale: "es_CL" },
+  twitter: { card: "summary_large_image" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#f5f5f5",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

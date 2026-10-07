@@ -1,0 +1,11 @@
+node_modules
+.next*
+.data*
+target
+dist
+bun.lock
+Cargo.lock
+packages/contract-client/src/index.ts
+packages/db/migrations
+apps/web/AGENTS.md
+apps/web/CLAUDE.md

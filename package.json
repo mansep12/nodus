@@ -19,6 +19,15 @@
     "deploy:sandbox": "bun run --filter @nodus/e2e deploy --out ../../apps/web/.env.sandbox",
     "db:migrate": "bun run --filter @nodus/db migrate",
     "e2e:web": "bun run --filter @nodus/e2e web",
-    "demo:neighbors": "bun run --filter @nodus/e2e neighbors"
+    "demo:neighbors": "bun run --filter @nodus/e2e neighbors",
+    "lint": "eslint packages && bun run --filter @nodus/web lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "prettier": "^3.6.0",
+    "typescript-eslint": "^8.46.0"
   }
 }

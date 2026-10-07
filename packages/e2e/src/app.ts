@@ -3,7 +3,7 @@ import { xdr } from "@stellar/stellar-sdk";
 import { Client as NodusClient } from "@nodus/contract-client";
 import { ACCOUNT_WASM_HASH, NETWORK_PASSPHRASE, RPC_URL, WEBAUTHN_VERIFIER, defaultRuleIds } from "@nodus/stellar";
 import { MemoryStorage, SmartAccountKit } from "smart-account-kit";
-import type { SettlementOption, SigningRequest, StateView } from "../../../apps/web/src/lib/types.ts";
+import type { SettlementOption, SigningRequest, StateView } from "@nodus/api";
 import { log, units } from "./harness.ts";
 import { SoftwarePasskey } from "./software-passkey.ts";
 

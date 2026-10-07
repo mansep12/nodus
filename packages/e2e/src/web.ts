@@ -8,7 +8,7 @@
  */
 import { xdr } from "@stellar/stellar-sdk";
 import { addressCredentials } from "@nodus/stellar";
-import type { CircleView, SigningRequest } from "../../../apps/web/src/lib/types.ts";
+import type { CircleView, SigningRequest } from "@nodus/api";
 import { connectApp } from "./app.ts";
 import { UNIT, log } from "./harness.ts";
 
@@ -38,9 +38,7 @@ const ours = new Set(businesses.map((business) => business.address));
 /** The circle among our three businesses that is still to be settled, if any. */
 async function openCircle(): Promise<CircleView | undefined> {
   const { circles } = await readState();
-  return circles.find(
-    (circle) => circle.proposal?.status !== "settled" && circle.parties.every((party) => ours.has(party.address)),
-  );
+  return circles.find((circle) => circle.proposal?.status !== "settled" && circle.parties.every((party) => ours.has(party.address)));
 }
 const amountOf = async (id: string) => (await readState()).obligations.find((obligation) => obligation.id === id)!;
 const of = (amount: bigint) => (amount * UNIT).toString();

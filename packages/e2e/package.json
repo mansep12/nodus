@@ -11,6 +11,7 @@
     "neighbors": "bun run src/neighbors.ts"
   },
   "dependencies": {
+    "@nodus/api": "workspace:*",
     "@nodus/contract-client": "workspace:*",
     "@nodus/db": "workspace:*",
     "@nodus/indexer": "workspace:*",
