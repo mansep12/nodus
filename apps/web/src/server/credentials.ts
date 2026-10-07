@@ -53,7 +53,9 @@ export async function registerCredential(input: CredentialInput): Promise<Creden
   const named = rule.signers.some((signer) => signer.kind === "External" && signer.keyData.equals(keyData));
   if (!named) throw new UserError("Esa passkey no firma por esta cuenta.");
 
-  const birth = input.birth ? await verifiedBirth(input.address, input.birth) : undefined;
+  // The passkey the account was born with signs under its first rule; nobody gets to claim otherwise.
+  const isPrimary = input.contextRuleId === 0;
+  const birth = input.birth && isPrimary ? await verifiedBirth(input.address, input.birth) : undefined;
 
   const db = await getDb();
   const [record] = await db
@@ -63,7 +65,7 @@ export async function registerCredential(input: CredentialInput): Promise<Creden
       address: input.address,
       publicKey: input.publicKey,
       contextRuleId: input.contextRuleId,
-      isPrimary: input.isPrimary,
+      isPrimary,
       label: input.label.slice(0, 40),
       birthWasmHash: birth?.wasmHash,
       creationTransactionHash: birth?.transactionHash,
@@ -72,11 +74,12 @@ export async function registerCredential(input: CredentialInput): Promise<Creden
     })
     .onConflictDoUpdate({
       target: credentials.credentialId,
+      // The label stays as the account's owner set it: anyone may post a passkey the chain names.
       set: {
         address: input.address,
         publicKey: input.publicKey,
         contextRuleId: input.contextRuleId,
-        isPrimary: input.isPrimary,
+        isPrimary,
         revokedAt: null,
         ...(birth
           ? {

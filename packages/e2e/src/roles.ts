@@ -54,7 +54,7 @@ const signer = createWebAuthnSigner(
   Buffer.from(registered.publicKey, "hex"),
   Buffer.from(registered.credentialId, "base64url"),
 );
-const functions = ["register", "accept", "reject", "cancel"];
+const functions = ["register", "accept", "reject"];
 const policies = new Map<string, unknown>([
   [
     allowlistPolicy,

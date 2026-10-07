@@ -1,5 +1,6 @@
 import { respond, UserError } from "@/server/errors";
 import { body } from "@/server/input";
+import { LIMITS } from "@/server/limits";
 import { requestSignature } from "@/server/proposals";
 import { requireOwner } from "@/server/session";
 
@@ -7,6 +8,7 @@ import { requireOwner } from "@/server/session";
 export async function POST(request: Request) {
   return respond(async () => {
     const session = await requireOwner();
+    await LIMITS.writesPerAddress(session.address);
     const input = await body(request);
     if (!Array.isArray(input.clearings) || input.clearings.length > 200) throw new UserError("Faltan las deudas del círculo.");
     const clearings = input.clearings.map((clearing: { id?: unknown; amount?: unknown }) => {

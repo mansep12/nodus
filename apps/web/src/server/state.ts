@@ -172,20 +172,13 @@ async function debtsById(db: Db, ids: bigint[], known: ObligationRow[]): Promise
  * every read, so that nothing links one circle's strangers to another's.
  */
 class Viewer {
-  private readonly aliases = new Map<string, string>();
   /** The addresses the viewer dealt with in some circle, to name them. */
   readonly neighbours = new Set<string>();
 
   constructor(
-    private readonly me: string,
-    private readonly debts: Map<bigint, Obligation>,
+    readonly me: string,
+    readonly debts: Map<bigint, Obligation>,
   ) {}
-
-  private alias(address: string): string {
-    let alias = this.aliases.get(address);
-    if (!alias) this.aliases.set(address, (alias = `anon:${randomBytes(6).toString("hex")}`));
-    return alias;
-  }
 
   /** What settling `clearings` means, and who of its parties `hasSigned`. */
   option(clearings: Clearing[], hasSigned: (address: string) => boolean): SettlementOption {
@@ -205,7 +198,14 @@ class Viewer {
       if (edge.to === this.me) known.add(edge.from);
     }
     for (const address of known) if (address !== this.me) this.neighbours.add(address);
-    const shown = (address: string) => (known.has(address) ? address : this.alias(address));
+    // Each circle gets its own markers, so that a stranger shared by two circles cannot be matched between them.
+    const aliases = new Map<string, string>();
+    const shown = (address: string) => {
+      if (known.has(address)) return address;
+      let alias = aliases.get(address);
+      if (!alias) aliases.set(address, (alias = `anon:${randomBytes(6).toString("hex")}`));
+      return alias;
+    };
 
     return {
       key: clearingsKey(clearings),
@@ -314,7 +314,7 @@ export async function mySettlements(
   const ids = clearedRows.flatMap((row) => (row.obligationId === null ? [] : [row.obligationId]));
   const debts = await debtsById(db, ids, []);
   const seen = viewer ?? new Viewer(me, debts);
-  for (const [id, debt] of debts) if (!seen["debts"].has(id)) seen["debts"].set(id, debt);
+  for (const [id, debt] of debts) if (!seen.debts.has(id)) seen.debts.set(id, debt);
 
   const settlements = settledRows.map((event): SettlementView => {
     // What a settlement cancelled is in the `cleared` events of its transaction.

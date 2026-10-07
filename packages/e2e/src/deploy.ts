@@ -45,7 +45,6 @@ if (!existing.VAPID_PUBLIC_KEY || !existing.VAPID_PRIVATE_KEY) {
   const keys = vapidKeys();
   values.VAPID_PUBLIC_KEY = keys.publicKey;
   values.VAPID_PRIVATE_KEY = keys.privateKey;
-  values.NEXT_PUBLIC_VAPID_PUBLIC_KEY = keys.publicKey;
   values.VAPID_SUBJECT = existing.VAPID_SUBJECT ?? "mailto:hola@example.com";
 }
 

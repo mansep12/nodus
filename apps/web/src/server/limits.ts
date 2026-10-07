@@ -51,7 +51,7 @@ export const LIMITS = {
   relayPerIp: (ip: string) => consume(`relay:${ip}`, 120, HOUR),
   /** Passkey challenges and sessions. */
   sessionPerIp: (ip: string) => consume(`session:${ip}`, 60, HOUR),
-  /** Names and searches of the directory. */
+  /** Searches of the directory. */
   directoryPerIp: (ip: string) => consume(`directory:${ip}`, 120, HOUR),
   /** Invitations and other writes that need a session. */
   writesPerAddress: (address: string) => consume(`writes:${address}`, 120, HOUR),

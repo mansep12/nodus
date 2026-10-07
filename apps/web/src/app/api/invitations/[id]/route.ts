@@ -7,8 +7,11 @@ import { completeInvitation, describeInvitation, registerInvitee, revokeInvitati
 type Context = RouteContext<"/api/invitations/[id]">;
 
 /** What the invitation offers, for the person who opens it. */
-export async function GET(_request: Request, context: Context) {
-  return respond(async () => describeInvitation((await context.params).id));
+export async function GET(request: Request, context: Context) {
+  return respond(async () => {
+    await LIMITS.directoryPerIp(clientIp(request));
+    return describeInvitation((await context.params).id);
+  });
 }
 
 /**

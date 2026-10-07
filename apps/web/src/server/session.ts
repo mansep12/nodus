@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { cookies } from "next/headers";
 import { and, eq, gt } from "drizzle-orm";
-import { challenges } from "@nodus/db";
+import { challenges, credentials } from "@nodus/db";
 import { getDb } from "./db";
 import { AuthError } from "./errors";
 
@@ -76,10 +76,18 @@ export async function readSession(): Promise<Session | null> {
   return decode((await cookies()).get(COOKIE)?.value);
 }
 
-/** The session of the request; refuses the request without one. */
+/** The session of the request; refuses the request without one, or with a passkey the account let go of. */
 export async function requireSession(): Promise<Session> {
   const session = await readSession();
   if (!session) throw new AuthError("Entra con tu passkey para seguir.");
+  const db = await getDb();
+  const [credential] = await db
+    .select({ revokedAt: credentials.revokedAt, address: credentials.address })
+    .from(credentials)
+    .where(eq(credentials.credentialId, session.credentialId));
+  if (credential && (credential.revokedAt || credential.address !== session.address)) {
+    throw new AuthError("Esta passkey ya no firma por la cuenta. Entra de nuevo.");
+  }
   return session;
 }
 

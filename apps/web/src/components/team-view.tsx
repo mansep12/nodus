@@ -24,7 +24,7 @@ const ROLES: Record<Role, { title: string; what: string }> = {
     title: "Dispositivo de respaldo",
     what: "Puede todo lo que puedes tú: firmar círculos, pagar, registrar. Es tu llave si pierdes este dispositivo.",
   },
-  clerk: { title: "Contador", what: "Registra, acepta, rechaza y anula deudas. Nunca firma liquidaciones ni mueve dinero." },
+  clerk: { title: "Contador", what: "Registra, acepta y rechaza deudas. Nunca firma liquidaciones, paga ni anula lo que te deben." },
 };
 
 /** The passkeys that sign for the business, and the invitations to add more. */

@@ -282,7 +282,7 @@ interface RegisterProps {
 
 /** Where a business records what another one owes it. */
 export function RegisterDebt({ onDone }: RegisterProps) {
-  const { me, state, nameOf } = useNodus();
+  const { me, state } = useNodus();
   const notify = useToast();
   const known: DirectoryMatch[] = state.businesses
     .filter((business) => business.address !== me)
@@ -303,9 +303,7 @@ export function RegisterDebt({ onDone }: RegisterProps) {
     },
     {
       onSuccess: () => {
-        notify(
-          `Deuda registrada. Cuando ${debtor ? (nameOf(debtor.address) === debtor.name ? debtor.name : debtor.name) : "el otro negocio"} la acepte podrá entrar en un círculo.`,
-        );
+        notify(`Deuda registrada. Cuando ${debtor?.name ?? "el otro negocio"} la acepte podrá entrar en un círculo.`);
         setAmountText("");
         setDueText("");
         setReferenceText("");

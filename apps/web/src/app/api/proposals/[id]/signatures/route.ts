@@ -1,5 +1,6 @@
 import { respond } from "@/server/errors";
 import { body, text } from "@/server/input";
+import { LIMITS } from "@/server/limits";
 import { addSignature } from "@/server/proposals";
 import { requireOwner } from "@/server/session";
 
@@ -10,6 +11,7 @@ export const maxDuration = 60;
 export async function POST(request: Request, context: RouteContext<"/api/proposals/[id]/signatures">) {
   return respond(async () => {
     const session = await requireOwner();
+    await LIMITS.writesPerAddress(session.address);
     const { id } = await context.params;
     const input = await body(request);
     await addSignature(id, session.address, text(input.signedEntry, "la firma", 100_000));

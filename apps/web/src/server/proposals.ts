@@ -7,7 +7,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, lte, max } from "drizzle-orm";
 import { rpc, xdr } from "@stellar/stellar-sdk";
-import { authorizations, businesses, proposals, type Db } from "@nodus/db";
+import { authorizations, proposals, type Db } from "@nodus/db";
 import { settleable } from "@nodus/indexer";
 import type { Clearing } from "@nodus/solver";
 import { NETWORK_PASSPHRASE, addressCredentials, entryAddress, isSignedByPasskey, relay, signedRuleId } from "@nodus/stellar";
@@ -52,7 +52,7 @@ export async function requestSignature(clearings: Clearing[], address: string): 
 
   let [proposal] = await db.select().from(proposals).where(underWay(key));
   if (!proposal) {
-    const created = await create(db, sorted, key);
+    const created = await create(db, sorted, key, address);
     // Someone else may have started it at the same moment; theirs wins.
     [proposal] = created ? [created] : await db.select().from(proposals).where(underWay(key));
   }
@@ -67,7 +67,7 @@ export async function requestSignature(clearings: Clearing[], address: string): 
   return { proposalId: proposal.id, entry: authorization.entry, expirationLedger: proposal.expirationLedger };
 }
 
-async function create(db: Db, clearings: Clearing[], key: string): Promise<Proposal | undefined> {
+async function create(db: Db, clearings: Clearing[], key: string, address: string): Promise<Proposal | undefined> {
   await refresh(true);
   // Only circles the solver finds can be started, so that nobody can tie
   // debts up in proposals of their own invention.
@@ -76,14 +76,16 @@ async function create(db: Db, clearings: Clearing[], key: string): Promise<Propo
     .find((candidate) => clearingsKey(candidate.clearings) === key);
   if (!offered) throw new UserError("Ese círculo ya no está disponible. Revisa los círculos actualizados.");
 
-  // The contract would reject it anyway, but this way the reason is clear.
+  // The contract would reject it anyway, but this way the reason is clear. Only
+  // the asker's own shortfall is spelled out: the others are not its business.
   for (const party of offered.parties) {
     if (party.net >= 0n) continue;
     const balance = await tokenBalance(party.address, true);
     if (balance < -party.net) {
-      const [business] = await db.select().from(businesses).where(eq(businesses.address, party.address));
       throw new UserError(
-        `${business?.name ?? "Un participante"} necesita ${formatAmount(-party.net)} ${TOKEN_SYMBOL} para pagar su saldo neto y tiene ${formatAmount(balance)}.`,
+        party.address === address
+          ? `Necesitas ${formatAmount(-party.net)} ${TOKEN_SYMBOL} para pagar tu saldo neto y tienes ${formatAmount(balance)}.`
+          : "A otro negocio del círculo todavía no le alcanza el saldo para pagar su parte. Pueden compensar sin mover dinero.",
       );
     }
   }
@@ -223,14 +225,20 @@ function explainSubmission(error: unknown): string {
  * Closes the proposals that can no longer be completed: expired ones, those
  * whose debts changed underneath them, and any left mid-submission.
  */
-export async function closeStaleProposals(db: Db): Promise<void> {
-  const fail = (id: string, error: string) => db.update(proposals).set({ status: "failed", error }).where(eq(proposals.id, id));
+export async function closeStaleProposals(db: Db): Promise<number> {
+  let closed = 0;
+  const fail = async (id: string, error: string) => {
+    await db.update(proposals).set({ status: "failed", error }).where(eq(proposals.id, id));
+    closed++;
+  };
   const here = eq(proposals.contractId, NODUS_CONTRACT);
 
-  await db
+  const expired = await db
     .update(proposals)
     .set({ status: "failed", error: "El plazo para firmar venció." })
-    .where(and(here, eq(proposals.status, "open"), lte(proposals.expirationLedger, await latestLedger())));
+    .where(and(here, eq(proposals.status, "open"), lte(proposals.expirationLedger, await latestLedger())))
+    .returning({ id: proposals.id });
+  closed += expired.length;
 
   const open = await db
     .select()
@@ -251,20 +259,21 @@ export async function closeStaleProposals(db: Db): Promise<void> {
     .where(and(here, eq(proposals.status, "submitted")))
     .orderBy(asc(proposals.createdAt));
   for (const proposal of stuck) {
-    if (!proposal.txHash) {
-      const [signatures] = await db
-        .select({ lastAt: max(authorizations.signedAt) })
-        .from(authorizations)
-        .where(eq(authorizations.proposalId, proposal.id));
-      const waited = Date.now() - (signatures?.lastAt?.getTime() ?? 0);
-      if (waited > SUBMISSION_TIMEOUT_MS) await fail(proposal.id, "El envío no terminó. Hay que firmar de nuevo.");
-      continue;
-    }
-    const { status } = await server.getTransaction(proposal.txHash);
+    const [signatures] = await db
+      .select({ lastAt: max(authorizations.signedAt) })
+      .from(authorizations)
+      .where(eq(authorizations.proposalId, proposal.id));
+    const waited = Date.now() - (signatures?.lastAt?.getTime() ?? 0);
+    const status = proposal.txHash ? (await server.getTransaction(proposal.txHash)).status : rpc.Api.GetTransactionStatus.NOT_FOUND;
     if (status === rpc.Api.GetTransactionStatus.SUCCESS) {
       await db.update(proposals).set({ status: "settled" }).where(eq(proposals.id, proposal.id));
+      closed++;
     } else if (status === rpc.Api.GetTransactionStatus.FAILED) {
       await fail(proposal.id, "La transacción falló en la red.");
+    } else if (waited > SUBMISSION_TIMEOUT_MS) {
+      // Never sent, or sent and never seen by the network: either way the signatures are spent.
+      await fail(proposal.id, "El envío no terminó. Hay que firmar de nuevo.");
     }
   }
+  return closed;
 }

@@ -35,21 +35,26 @@ export async function team(address: string, currentCredentialId: string): Promis
     db.select().from(credentials).where(eq(credentials.address, address)).orderBy(credentials.createdAt),
     db.select().from(invitations).where(eq(invitations.address, address)).orderBy(desc(invitations.createdAt)),
   ]);
+  const active = keys.filter((key) => !key.revokedAt);
+  // What a key may do is what its rule on chain says, not what the invitation meant.
+  const roles = new Map(
+    await Promise.all(
+      active.map(async (key): Promise<[string, Role]> => {
+        const rule = await accountRule(address, key.contextRuleId);
+        return [key.credentialId, rule && rule.contextType.kind === "Default" && rule.policies.length === 0 ? "owner" : "clerk"];
+      }),
+    ),
+  );
   return {
-    credentials: keys
-      .filter((key) => !key.revokedAt)
-      .map((key) => ({
-        credentialId: key.credentialId,
-        label: key.label,
-        contextRuleId: key.contextRuleId,
-        role:
-          key.contextRuleId === 0 || (invited.find((i) => i.credentialId === key.credentialId)?.role ?? "owner") === "owner"
-            ? "owner"
-            : "clerk",
-        isPrimary: key.isPrimary,
-        createdAt: key.createdAt.toISOString(),
-        current: key.credentialId === currentCredentialId,
-      })),
+    credentials: active.map((key) => ({
+      credentialId: key.credentialId,
+      label: key.label,
+      contextRuleId: key.contextRuleId,
+      role: roles.get(key.credentialId) ?? "clerk",
+      isPrimary: key.isPrimary,
+      createdAt: key.createdAt.toISOString(),
+      current: key.credentialId === currentCredentialId,
+    })),
     invitations: invited.filter((row) => row.status !== "revoked" && row.expiresAt > new Date()).map(view),
   };
 }

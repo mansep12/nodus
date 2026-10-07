@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { pushSubscriptions } from "@nodus/db";
 import { getDb } from "@/server/db";
 import { respond, UserError } from "@/server/errors";
@@ -37,7 +37,7 @@ export async function DELETE(request: Request) {
     const input = await body(request);
     const endpoint = text(input.endpoint, "la suscripción", 2_000);
     const db = await getDb();
-    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
-    return { ok: true, address: session.address };
+    await db.delete(pushSubscriptions).where(and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.address, session.address)));
+    return { ok: true };
   });
 }

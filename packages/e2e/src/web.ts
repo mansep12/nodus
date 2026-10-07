@@ -115,7 +115,12 @@ circle = await openCircle();
 assert(circle, "the new debt closes the circle again");
 assert(circle.cleared === of(60n) && circle.moved === of(20n), "in full it cancels 60 moving 20");
 
-await refuses(() => sign(circle!, bakery), /necesita 10 USDC/, "a party that cannot pay its net stops the proposal");
+await refuses(
+  () => sign(circle!, bakery),
+  /otro negocio del círculo todavía no le alcanza/,
+  "a party that cannot pay its net stops the proposal",
+);
+await refuses(() => sign(circle!, mill), /Necesitas 10 USDC/, "the asker is told its own shortfall");
 
 for (const payer of [bakery, mill]) await api("/api/faucet", {}, payer);
 for (const business of businesses) await sign(circle, business);

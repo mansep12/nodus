@@ -40,6 +40,10 @@ export function getKit(): SmartAccountKit {
  */
 export async function seedCredentials(records: KitCredential[]): Promise<void> {
   const store = getStorage();
+  // The account was born with its primary passkey; every other passkey proves itself against those same facts.
+  const birth =
+    records.find((record) => record.isPrimary && record.birthConstructorArgsHash) ??
+    records.find((record) => record.birthConstructorArgsHash);
   for (const record of records) {
     const existing = await store.get(record.credentialId);
     const credential: StoredCredential = {
@@ -52,10 +56,10 @@ export async function seedCredentials(records: KitCredential[]): Promise<void> {
       contextRuleId: record.contextRuleId,
       associationVerified: !record.isPrimary,
       deploymentStatus: "deployed",
-      birthWasmHash: record.birthWasmHash,
-      creationTransactionHash: record.creationTransactionHash,
-      creationLedger: record.creationLedger,
-      birthConstructorArgsHash: record.birthConstructorArgsHash,
+      birthWasmHash: record.birthWasmHash ?? birth?.birthWasmHash,
+      creationTransactionHash: record.creationTransactionHash ?? birth?.creationTransactionHash,
+      creationLedger: record.creationLedger ?? birth?.creationLedger,
+      birthConstructorArgsHash: record.birthConstructorArgsHash ?? birth?.birthConstructorArgsHash,
     };
     await store.save({ ...existing, ...credential });
   }

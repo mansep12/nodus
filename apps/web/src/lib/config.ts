@@ -21,5 +21,5 @@ export const SOFTWARE_PASSKEYS = process.env.NEXT_PUBLIC_SOFTWARE_PASSKEYS === "
 export const TOKEN_SYMBOL = "USDC";
 export const TOKEN_DECIMALS = 7;
 
-/** The functions of Nodus a clerk's key may call: everything but settling and paying. */
-export const CLERK_FUNCTIONS = ["register", "accept", "reject", "cancel"] as const;
+/** The functions of Nodus a clerk's key may call: keeping the books, never settling, paying or forgiving. */
+export const CLERK_FUNCTIONS = ["register", "accept", "reject"] as const;

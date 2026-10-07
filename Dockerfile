@@ -21,7 +21,6 @@ COPY . .
 ARG NEXT_PUBLIC_NODUS_CONTRACT
 ARG NEXT_PUBLIC_TOKEN_CONTRACT
 ARG NEXT_PUBLIC_ALLOWLIST_POLICY
-ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
 ARG NEXT_PUBLIC_APP_URL
 ENV NEXT_OUTPUT=standalone NEXT_TELEMETRY_DISABLED=1
 RUN cd apps/web && node node_modules/next/dist/bin/next build
@@ -33,6 +32,8 @@ COPY --from=build /app/apps/web/.next/standalone ./
 COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build /app/apps/web/public ./apps/web/public
 COPY --from=build /app/packages/db/migrations ./packages/db/migrations
+# The embedded database, when DATABASE_URL is unset, lives under apps/web/.data and must be writable.
+RUN mkdir -p apps/web/.data && chown -R node:node /app
 USER node
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]

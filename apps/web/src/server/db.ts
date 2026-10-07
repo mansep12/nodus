@@ -57,9 +57,11 @@ export async function refresh(now = false): Promise<void> {
       const result = await sync(db, { server, contractId: NODUS_CONTRACT, startLedger });
       syncedAt = Date.now();
       if (result.gap) await reconcile(db, { contractId: NODUS_CONTRACT, reader: chainReader });
-      if (result.applied > 0 || result.gap || Date.now() - staleCheckedAt > STALE_CHECK_MS) {
+      if (result.applied > 0 || result.gap) await afterChange(db);
+      else if (Date.now() - staleCheckedAt > STALE_CHECK_MS) {
         staleCheckedAt = Date.now();
-        await afterChange(db);
+        // Nothing happened on chain, but time passed: proposals may have expired.
+        if ((await closeStaleProposals(db)) > 0) await afterChange(db);
       }
     } finally {
       syncing = undefined;
@@ -72,7 +74,8 @@ export async function refresh(now = false): Promise<void> {
 export async function afterChange(db: Db): Promise<void> {
   await closeStaleProposals(db);
   await recomputeCandidates(db);
-  await notifyChanges(db).catch((error) => console.error("Could not send notifications", error));
+  // Notices go out on their own time: nobody reading should wait for a push service.
+  void notifyChanges(db).catch((error) => console.error("Could not send notifications", error));
 }
 
 const DAY_MS = 24 * 60 * 60_000;
