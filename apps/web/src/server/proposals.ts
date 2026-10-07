@@ -10,14 +10,15 @@ import { rpc, xdr } from "@stellar/stellar-sdk";
 import { authorizations, businesses, proposals, type Db } from "@nodus/db";
 import { settleable } from "@nodus/indexer";
 import type { Clearing } from "@nodus/solver";
-import { NETWORK_PASSPHRASE, addressCredentials, entryAddress, isSignedByPasskey, relay } from "@nodus/stellar";
+import { NETWORK_PASSPHRASE, addressCredentials, entryAddress, isSignedByPasskey, relay, signedRuleId } from "@nodus/stellar";
 import { NODUS_CONTRACT, TOKEN_SYMBOL } from "@/lib/config";
 import { formatAmount } from "@/lib/format";
 import type { SigningRequest } from "@/lib/types";
-import { accountSigner, latestLedger, nodus, server, tokenBalance } from "./chain";
-import { currentCandidates } from "./circles";
+import { accountRule, forgetBalances, latestLedger, nodus, passkeySigners, server, tokenBalance } from "./chain";
+import { currentCandidates, recomputeCandidates } from "./circles";
 import { getDb, refresh } from "./db";
 import { UserError } from "./errors";
+import { notifyChanges } from "./notify";
 
 type Proposal = typeof proposals.$inferSelect;
 
@@ -70,7 +71,7 @@ async function create(db: Db, clearings: Clearing[], key: string): Promise<Propo
   await refresh(true);
   // Only circles the solver finds can be started, so that nobody can tie
   // debts up in proposals of their own invention.
-  const offered = (await currentCandidates(db))
+  const offered = (await currentCandidates(db)).candidates
     .flatMap((candidate) => (candidate.netOnly ? [candidate.full, candidate.netOnly] : [candidate.full]))
     .find((candidate) => clearingsKey(candidate.clearings) === key);
   if (!offered) throw new UserError("Ese círculo ya no está disponible. Revisa los círculos actualizados.");
@@ -78,7 +79,7 @@ async function create(db: Db, clearings: Clearing[], key: string): Promise<Propo
   // The contract would reject it anyway, but this way the reason is clear.
   for (const party of offered.parties) {
     if (party.net >= 0n) continue;
-    const balance = await tokenBalance(party.address);
+    const balance = await tokenBalance(party.address, true);
     if (balance < -party.net) {
       const [business] = await db.select().from(businesses).where(eq(businesses.address, party.address));
       throw new UserError(
@@ -100,7 +101,7 @@ async function create(db: Db, clearings: Clearing[], key: string): Promise<Propo
     func: operation.func.toXDR("base64"),
     expirationLedger: (await latestLedger()) + VALIDITY_LEDGERS,
   };
-  return db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     const [created] = await tx.insert(proposals).values(proposal).onConflictDoNothing().returning();
     if (!created) return undefined;
     await tx
@@ -108,6 +109,9 @@ async function create(db: Db, clearings: Clearing[], key: string): Promise<Propo
       .values(entries.map((entry) => ({ proposalId: created.id, address: entryAddress(entry), entry: entry.toXDR("base64") })));
     return created;
   });
+  // The debts of this circle are spoken for now: the others get searched again.
+  if (created) await recomputeCandidates(db);
+  return created;
 }
 
 /** Records the signature of `address` and, if it was the last one missing, settles. */
@@ -125,11 +129,7 @@ export async function addSignature(proposalId: string, address: string, signedEn
   }
   // A signature that the account would reject on chain is refused here, so
   // that nobody can spoil a proposal by signing in someone else's name.
-  const signer = await accountSigner(address);
-  const signed = xdr.SorobanAuthorizationEntry.fromXDR(signedEntry, "base64");
-  if (!signer || !(await isSignedByPasskey(signed, signer, NETWORK_PASSPHRASE))) {
-    throw new UserError("La firma no es válida para esta cuenta.");
-  }
+  if (!(await isOwnerSignature(signedEntry, address))) throw new UserError("La firma no es válida para esta cuenta.");
   await db.update(authorizations).set({ signedEntry, signedAt: new Date() }).where(mine);
 
   const all = await db.select().from(authorizations).where(eq(authorizations.proposalId, proposalId));
@@ -139,6 +139,24 @@ export async function addSignature(proposalId: string, address: string, signedEn
       proposal,
       all.map((a) => a.signedEntry!),
     );
+  else await notifyChanges(db).catch((error) => console.error("Could not send notifications", error));
+}
+
+/**
+ * Whether `signedXdr` carries a signature the account `address` would accept
+ * for a settlement: made by one of the passkeys of a rule that may authorize
+ * anything (a `Default` rule with no policies), under that rule.
+ */
+async function isOwnerSignature(signedXdr: string, address: string): Promise<boolean> {
+  const signed = xdr.SorobanAuthorizationEntry.fromXDR(signedXdr, "base64");
+  const ruleId = signedRuleId(signed);
+  if (ruleId === undefined) return false;
+  const rule = await accountRule(address, ruleId);
+  if (!rule || rule.contextType.kind !== "Default" || rule.policies.length > 0) return false;
+  for (const signer of passkeySigners(rule)) {
+    if (await isSignedByPasskey(signed, signer, NETWORK_PASSPHRASE, ruleId)) return true;
+  }
+  return false;
 }
 
 /**
@@ -182,11 +200,23 @@ async function settle(db: Db, proposal: Proposal, signedEntries: string[]): Prom
     const result = await server.pollTransaction(txHash, { attempts: 20 });
     if (result.status !== rpc.Api.GetTransactionStatus.SUCCESS) throw new Error(`Transaction ended as ${result.status}`);
     await mark({ status: "settled" });
+    forgetBalances();
     await refresh(true);
   } catch (error) {
     console.error(error);
-    await mark({ status: "failed", error: error instanceof Error ? error.message : String(error) });
+    await mark({ status: "failed", error: explainSubmission(error) });
+    await recomputeCandidates(db);
   }
+}
+
+/** What went wrong sending a settlement, in the words of the person who will read it. */
+function explainSubmission(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/ended as FAILED/i.test(message)) return "La red rechazó la transacción. Puede que una deuda o un saldo haya cambiado.";
+  if (/ended as NOT_FOUND/i.test(message)) return "La red no confirmó la transacción a tiempo.";
+  if (/not set/i.test(message)) return "Esta instalación no tiene relayer configurado.";
+  if (/insufficient|balance|underfunded/i.test(message)) return "A un participante no le alcanzó el saldo para pagar su neto.";
+  return "El envío a la red falló. Hay que firmar de nuevo.";
 }
 
 /**

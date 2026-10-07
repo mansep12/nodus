@@ -15,7 +15,41 @@ export function account(value: unknown): string {
   return value;
 }
 
-export function text(value: unknown, what: string): string {
+export function text(value: unknown, what: string, max = 1_000): string {
   if (typeof value !== "string" || value.length === 0) throw new UserError(`Falta ${what}.`);
+  if (value.length > max) throw new UserError(`${what[0]!.toUpperCase()}${what.slice(1)} es demasiado largo.`);
   return value;
+}
+
+export function optionalText(value: unknown, what: string, max = 1_000): string | undefined {
+  return value === undefined || value === null || value === "" ? undefined : text(value, what, max);
+}
+
+export function integer(value: unknown, what: string, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}): number {
+  const number = typeof value === "string" ? Number(value) : value;
+  if (typeof number !== "number" || !Number.isInteger(number) || number < min || number > max) throw new UserError(`${what} no es válido.`);
+  return number;
+}
+
+export function optionalInteger(value: unknown, what: string, bounds?: { min?: number; max?: number }): number | undefined {
+  return value === undefined || value === null || value === "" ? undefined : integer(value, what, bounds);
+}
+
+/** A 32-byte hash as lowercase hex. */
+export function hash32(value: unknown, what: string): string {
+  if (typeof value !== "string" || !/^[0-9a-fA-F]{64}$/.test(value)) throw new UserError(`${what} no es válido.`);
+  return value.toLowerCase();
+}
+
+/** The hostname and origin a request was made to, for WebAuthn. */
+export function relyingParty(request: Request): { rpId: string; origins: string[] } {
+  const url = new URL(request.url);
+  const origins = new Set([url.origin]);
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
+  if (forwardedHost) origins.add(`${forwardedProto}://${forwardedHost}`);
+  const origin = request.headers.get("origin");
+  if (origin) origins.add(origin);
+  const rpId = forwardedHost ? forwardedHost.split(":")[0]! : url.hostname;
+  return { rpId, origins: [...origins] };
 }

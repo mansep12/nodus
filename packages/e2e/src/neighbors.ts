@@ -24,13 +24,13 @@ await owe(mill, carrier, 80n * UNIT);
 // A debt of yours with the mill, for you to accept.
 await register(you, mill, 100n * UNIT);
 // The carrier will owe a net of 10 when the circle is settled in full.
-await api("/api/faucet", { address: carrier.address });
+await api("/api/faucet", {}, carrier);
 log("Waiting: accept the debt with Molino Andes, and register that Fletes Ruta 5 owes you 90.");
 
 const done = new Set<string>();
 for (;;) {
-  const state = await readState();
   for (const neighbor of neighbors) {
+    const state = await readState(neighbor);
     for (const obligation of state.obligations) {
       if (obligation.debtor !== neighbor.address || obligation.status !== "pending" || done.has(obligation.id)) continue;
       done.add(obligation.id);

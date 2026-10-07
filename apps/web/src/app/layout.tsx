@@ -23,7 +23,8 @@ const mono = IBM_Plex_Mono({
   weight: ["400", "500"],
 });
 
-const DESCRIPTION = "Desanuda las deudas entre negocios: encuentra los círculos de deuda, los cancela a la vez y mueve solo el saldo neto.";
+const DESCRIPTION =
+  "Cancela lo que debes con lo que te deben, sin esperar a que te paguen. Nodus encuentra los círculos de deuda entre negocios y los liquida en una sola transacción sobre Stellar.";
 
 /** Where the app is published, for absolute links in shared cards. */
 const APP_URL =

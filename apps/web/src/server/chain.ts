@@ -1,7 +1,8 @@
 import "server-only";
-import { Account, Address, BASE_FEE, Operation, TransactionBuilder, rpc, scValToNative, xdr } from "@stellar/stellar-sdk";
+import { Account, Address, BASE_FEE, Operation, TransactionBuilder, nativeToScVal, rpc, scValToNative, xdr } from "@stellar/stellar-sdk";
 import { Client as NodusClient } from "@nodus/contract-client";
-import { NETWORK_PASSPHRASE, RPC_URL, WEBAUTHN_VERIFIER, type PasskeySigner } from "@nodus/stellar";
+import type { ChainReader, StoredObligation } from "@nodus/indexer";
+import { ACCOUNT_WASM_HASH, NETWORK_PASSPHRASE, RPC_URL, WEBAUTHN_VERIFIER, type PasskeySigner } from "@nodus/stellar";
 import { NODUS_CONTRACT, TOKEN_CONTRACT } from "@/lib/config";
 
 export const server = new rpc.Server(RPC_URL);
@@ -28,13 +29,122 @@ export async function simulate(contract: string, fn: string, args: xdr.ScVal[]) 
   return { operation: tx.operations[0] as Operation.InvokeHostFunction, result: simulation.result };
 }
 
-export async function tokenBalance(address: string): Promise<bigint> {
-  const { result } = await simulate(TOKEN_CONTRACT, "balance", [Address.fromString(address).toScVal()]);
-  return scValToNative(result.retval) as bigint;
+const BALANCE_FRESHNESS_MS = 3_000;
+const balances = new Map<string, { value: bigint; readAt: number }>();
+
+/**
+ * The token balance of a smart account, read straight from the token's
+ * storage rather than by simulating a call, and kept for a few seconds.
+ */
+export async function tokenBalance(address: string, fresh = false): Promise<bigint> {
+  const known = balances.get(address);
+  if (!fresh && known && Date.now() - known.readAt < BALANCE_FRESHNESS_MS) return known.value;
+
+  const key = xdr.LedgerKey.contractData(
+    new xdr.LedgerKeyContractData({
+      contract: Address.fromString(TOKEN_CONTRACT).toScAddress(),
+      key: xdr.ScVal.scvVec([xdr.ScVal.scvSymbol("Balance"), Address.fromString(address).toScVal()]),
+      durability: xdr.ContractDataDurability.persistent(),
+    }),
+  );
+  const { entries } = await server.getLedgerEntries(key);
+  const entry = entries[0]?.val.contractData().val();
+  const value = entry ? ((scValToNative(entry) as { amount?: bigint }).amount ?? 0n) : 0n;
+  balances.set(address, { value, readAt: Date.now() });
+  return value;
 }
 
-const SIGNER_FRESHNESS_MS = 60_000;
-const signers = new Map<string, { signer: PasskeySigner | undefined; readAt: number }>();
+/** Forgets the balances read so far, after something moved money. */
+export function forgetBalances() {
+  balances.clear();
+}
+
+/** A signer of a smart account's context rule. */
+export type RuleSigner = { kind: "External"; verifier: string; keyData: Buffer } | { kind: "Delegated"; address: string };
+
+export interface AccountRule {
+  id: number;
+  contextType: { kind: "Default" } | { kind: "CallContract"; contract: string } | { kind: "CreateContract" };
+  name: string;
+  signers: RuleSigner[];
+  policies: string[];
+  validUntil: number | undefined;
+}
+
+const RULE_FRESHNESS_MS = 60_000;
+const rules = new Map<string, { rule: AccountRule | undefined; readAt: number }>();
+
+/** One context rule of a smart account, as it is on chain. Undefined if there is no such rule or account. */
+export async function accountRule(address: string, ruleId: number, fresh = false): Promise<AccountRule | undefined> {
+  const cacheKey = `${address}:${ruleId}`;
+  const known = rules.get(cacheKey);
+  if (!fresh && known && Date.now() - known.readAt < RULE_FRESHNESS_MS) return known.rule;
+
+  let rule: AccountRule | undefined;
+  try {
+    const { result } = await simulate(address, "get_context_rule", [xdr.ScVal.scvU32(ruleId)]);
+    const raw = scValToNative(result.retval) as {
+      id: number;
+      context_type: [string, string?];
+      name: string;
+      signers: Array<[kind: string, first: string, keyData?: Buffer]>;
+      policies: string[];
+      valid_until: number | undefined;
+    };
+    rule = {
+      id: raw.id,
+      contextType:
+        raw.context_type[0] === "CallContract"
+          ? { kind: "CallContract", contract: raw.context_type[1]! }
+          : raw.context_type[0] === "CreateContract"
+            ? { kind: "CreateContract" }
+            : { kind: "Default" },
+      name: raw.name,
+      signers: raw.signers.map((signer) =>
+        signer[0] === "External"
+          ? { kind: "External", verifier: signer[1], keyData: signer[2]! }
+          : { kind: "Delegated", address: signer[1] },
+      ),
+      policies: raw.policies,
+      validUntil: raw.valid_until ?? undefined,
+    };
+  } catch {
+    // Not a smart account, no such rule, or the network failed: either way, not something to remember for long.
+    rule = undefined;
+  }
+  rules.set(cacheKey, { rule, readAt: Date.now() });
+  return rule;
+}
+
+/** Forgets what was read about an account's rules, after they changed. */
+export function forgetRules(address: string) {
+  for (const key of rules.keys()) if (key.startsWith(`${address}:`)) rules.delete(key);
+}
+
+const accounts = new Map<string, boolean>();
+
+/** Whether `address` runs the smart account code this app creates accounts with. */
+export async function isSmartAccount(address: string): Promise<boolean> {
+  const known = accounts.get(address);
+  if (known !== undefined) return known;
+  let result = false;
+  try {
+    const instance = await server.getContractData(address, xdr.ScVal.scvLedgerKeyContractInstance());
+    const executable = instance.val.contractData().val().instance().executable();
+    result = executable.switch().name === "contractExecutableWasm" && executable.wasmHash().toString("hex") === ACCOUNT_WASM_HASH;
+  } catch {
+    result = false;
+  }
+  accounts.set(address, result);
+  return result;
+}
+
+/** The WebAuthn signers of a rule, as the signature check needs them. */
+export function passkeySigners(rule: AccountRule): PasskeySigner[] {
+  return rule.signers.flatMap((signer) =>
+    signer.kind === "External" && signer.verifier === WEBAUTHN_VERIFIER ? [{ verifier: signer.verifier, keyData: signer.keyData }] : [],
+  );
+}
 
 /**
  * The passkey a smart account answers to, if the account is set up the way
@@ -42,26 +152,9 @@ const signers = new Map<string, { signer: PasskeySigner | undefined; readAt: num
  * and no policies. Undefined for anything else.
  */
 export async function accountSigner(address: string): Promise<PasskeySigner | undefined> {
-  const known = signers.get(address);
-  if (known && Date.now() - known.readAt < SIGNER_FRESHNESS_MS) return known.signer;
-
-  let rule: {
-    context_type: [string];
-    policies: unknown[] | Record<string, unknown>;
-    signers: Array<[kind: string, verifier: string, keyData: Buffer]>;
-  };
-  try {
-    const { result } = await simulate(address, "get_context_rule", [xdr.ScVal.scvU32(0)]);
-    rule = scValToNative(result.retval);
-  } catch {
-    // Not a smart account, or the network failed: either way, not something to remember.
-    return undefined;
-  }
-  const [only, ...others] = rule.signers;
-  const plain = rule.context_type[0] === "Default" && Object.keys(rule.policies).length === 0 && others.length === 0;
-  const signer = plain && only?.[0] === "External" && only[1] === WEBAUTHN_VERIFIER ? { verifier: only[1], keyData: only[2] } : undefined;
-  signers.set(address, { signer, readAt: Date.now() });
-  return signer;
+  const rule = await accountRule(address, 0);
+  if (!rule || rule.contextType.kind !== "Default" || rule.policies.length > 0 || rule.signers.length !== 1) return undefined;
+  return passkeySigners(rule)[0];
 }
 
 const LEDGER_FRESHNESS_MS = 3_000;
@@ -74,3 +167,51 @@ export async function latestLedger(): Promise<number> {
   }
   return ledger.sequence;
 }
+
+const READ_BATCH = 100;
+
+/** Reads the Nodus contract's storage directly, for squaring the database copy with it. */
+export const chainReader: ChainReader = {
+  async count() {
+    const { result } = await simulate(NODUS_CONTRACT, "count", []);
+    return scValToNative(result.retval) as bigint;
+  },
+  async obligations(ids) {
+    const found = new Map<bigint, StoredObligation | null>();
+    for (let at = 0; at < ids.length; at += READ_BATCH) {
+      const batch = ids.slice(at, at + READ_BATCH);
+      const keys = batch.map((id) =>
+        xdr.LedgerKey.contractData(
+          new xdr.LedgerKeyContractData({
+            contract: Address.fromString(NODUS_CONTRACT).toScAddress(),
+            key: xdr.ScVal.scvVec([xdr.ScVal.scvSymbol("Obligation"), nativeToScVal(id, { type: "u64" })]),
+            durability: xdr.ContractDataDurability.persistent(),
+          }),
+        ),
+      );
+      const { entries } = await server.getLedgerEntries(...keys);
+      for (const id of batch) found.set(id, null);
+      for (const entry of entries) {
+        const data = entry.val.contractData();
+        const id = scValToNative(data.key().vec()![1]!) as bigint;
+        const value = scValToNative(data.val()) as {
+          debtor: string;
+          creditor: string;
+          amount: bigint;
+          accepted: boolean;
+          reference: Buffer | undefined;
+          due: bigint | undefined;
+        };
+        found.set(id, {
+          debtor: value.debtor,
+          creditor: value.creditor,
+          amount: value.amount,
+          accepted: value.accepted,
+          reference: value.reference ?? null,
+          due: value.due ?? null,
+        });
+      }
+    }
+    return found;
+  },
+};

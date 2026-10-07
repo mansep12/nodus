@@ -1,59 +1,185 @@
 "use client";
 
+import { startAuthentication } from "@simplewebauthn/browser";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { post } from "./api";
-import { getKit } from "./kit";
-import { chooseSoftwarePasskey } from "./software-passkey";
+import { configureSigner } from "./actions";
+import { del, fetchSession, get, post } from "./api";
+import { SOFTWARE_PASSKEYS } from "./config";
+import { describeCredential, getKit, seedCredentials } from "./kit";
+import { chooseSoftwarePasskey, softwareAuthenticator } from "./software-passkey";
+import type { KitCredential, Role, SessionView } from "./types";
 
-interface Session {
+export interface Session {
   /** The smart account of the business. */
   address: string;
+  /** The passkey the browser entered with. */
+  credentialId: string;
+  role: Role;
+  name: string | null;
 }
 
 interface SessionContextValue {
   /** False until we know whether this device already has a session. */
   ready: boolean;
   session: Session | null;
+  /**
+   * The browser still holds the account's passkey but the API session ended:
+   * one touch of the passkey opens it again, without going through the welcome.
+   */
+  confirming: { credentialId: string; address: string } | null;
   /** Creates a passkey and the smart account it controls. */
   create: (name: string) => Promise<void>;
-  /** Enters with a passkey this device already has. */
-  enter: (softwareCredentialId?: string) => Promise<void>;
+  /** Enters with a passkey this device already has, or any passkey of a known account. */
+  enter: (credentialId?: string) => Promise<void>;
+  /** Opens the API session again with the passkey the kit already trusts. */
+  confirm: () => Promise<void>;
+  /** The API no longer honours the session: ask for the passkey again. */
+  expire: () => void;
   leave: () => Promise<void>;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
+/** A fresh assertion by the passkey over a challenge from our API. */
+async function assert(challenge: string, rpId: string, credentialId?: string) {
+  if (SOFTWARE_PASSKEYS) {
+    if (credentialId) chooseSoftwarePasskey(credentialId);
+    return softwareAuthenticator.startAuthentication({
+      optionsJSON: { challenge, allowCredentials: credentialId ? [{ id: credentialId }] : undefined },
+    });
+  }
+  return startAuthentication({
+    optionsJSON: {
+      challenge,
+      rpId,
+      userVerification: "required",
+      timeout: 60_000,
+      allowCredentials: credentialId ? [{ id: credentialId, type: "public-key" }] : undefined,
+    },
+  });
+}
+
+/** Opens the API session with a passkey and gives the kit what it needs to use the account here. */
+async function openSession(credentialId?: string): Promise<SessionView> {
+  const { challenge, rpId } = await get<{ challenge: string; rpId: string }>("/api/session/challenge");
+  const assertion = await assert(challenge, rpId, credentialId);
+  const view = await post<SessionView>("/api/session", { assertion });
+  await seedCredentials(view.credentials);
+  await getKit().connectWallet({ credentialId: view.credentialId, contractId: view.address });
+  return view;
+}
+
+/** Tells the API about a passkey this browser holds, so that it can be used from another one. */
+async function publishCredential(credentialId: string, label: string) {
+  const record = await describeCredential(credentialId);
+  if (!record) return;
+  await post("/api/credentials", {
+    address: record.contractId,
+    credentialId: record.credentialId,
+    publicKey: record.publicKey,
+    contextRuleId: record.contextRuleId,
+    isPrimary: record.isPrimary,
+    label: record.label || label,
+    birth:
+      record.birthWasmHash && record.creationTransactionHash && record.creationLedger && record.birthConstructorArgsHash
+        ? {
+            wasmHash: record.birthWasmHash,
+            transactionHash: record.creationTransactionHash,
+            ledger: record.creationLedger,
+            constructorArgsHash: record.birthConstructorArgsHash,
+          }
+        : undefined,
+  }).catch(() => undefined);
+}
+
+const toSession = (view: Pick<SessionView, "address" | "credentialId" | "role" | "name">): Session => ({
+  address: view.address,
+  credentialId: view.credentialId,
+  role: view.role,
+  name: view.name,
+});
+
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
+  const [confirming, setConfirming] = useState<{ credentialId: string; address: string } | null>(null);
 
   useEffect(() => {
-    getKit()
-      .connectWallet()
-      .then((connected) => setSession(connected && { address: connected.contractId }))
-      .catch(() => setSession(null))
+    (async () => {
+      const [kit, api] = await Promise.all([
+        getKit()
+          .connectWallet()
+          .catch(() => null),
+        fetchSession().catch(() => ({ session: null })),
+      ]);
+      if (api.session && kit && api.session.address === kit.contractId) {
+        setSession(toSession(api.session));
+        void publishCredential(kit.credentialId, "Este dispositivo");
+      } else if (api.session) {
+        // The API knows the browser but the kit does not: give it the account's passkeys.
+        try {
+          await seedCredentials(await get<KitCredential[]>("/api/credentials"));
+          await getKit().connectWallet({ credentialId: api.session.credentialId, contractId: api.session.address });
+          setSession(toSession(api.session));
+        } catch {
+          await del("/api/session").catch(() => undefined);
+        }
+      } else if (kit) {
+        void publishCredential(kit.credentialId, "Este dispositivo");
+        setConfirming({ credentialId: kit.credentialId, address: kit.contractId });
+      }
+    })()
+      .catch(() => undefined)
       .finally(() => setReady(true));
   }, []);
 
-  const create = useCallback(async (name: string) => {
-    const wallet = await getKit().createWallet("Nodus", name, { autoSubmit: true });
-    if (!wallet.submitResult?.success) throw wallet.submitResult?.error ?? new Error("No se pudo crear la cuenta.");
-    await post("/api/businesses", { address: wallet.contractId, name });
-    setSession({ address: wallet.contractId });
+  useEffect(() => {
+    configureSigner({ ruleId: 0 });
+    if (session)
+      void getKit()
+        .connectWallet()
+        .then((kit) => kit?.credential?.contextRuleId !== undefined && configureSigner({ ruleId: kit.credential.contextRuleId }));
+  }, [session]);
+
+  const enter = useCallback(async (credentialId?: string) => {
+    const view = await openSession(credentialId);
+    setConfirming(null);
+    setSession(toSession(view));
   }, []);
 
-  const enter = useCallback(async (softwareCredentialId?: string) => {
-    if (softwareCredentialId) chooseSoftwarePasskey(softwareCredentialId);
-    const connected = await getKit().connectWallet({ fresh: true });
-    if (connected) setSession({ address: connected.contractId });
+  const create = useCallback(
+    async (name: string) => {
+      const wallet = await getKit().createWallet("Nodus", name, { autoSubmit: true });
+      if (!wallet.submitResult?.success) throw wallet.submitResult?.error ?? new Error("No se pudo crear la cuenta.");
+      await publishCredential(wallet.credentialId, "Este dispositivo");
+      await enter(wallet.credentialId);
+      const named = await post<{ name: string }>("/api/businesses", { name });
+      setSession((current) => (current ? { ...current, name: named.name } : current));
+    },
+    [enter],
+  );
+
+  const confirm = useCallback(async () => {
+    if (confirming) await enter(confirming.credentialId);
+  }, [confirming, enter]);
+
+  const expire = useCallback(() => {
+    setSession((current) => {
+      if (current) setConfirming({ credentialId: current.credentialId, address: current.address });
+      return null;
+    });
   }, []);
 
   const leave = useCallback(async () => {
-    await getKit().disconnect();
+    await Promise.all([getKit().disconnect(), del("/api/session").catch(() => undefined)]);
+    setConfirming(null);
     setSession(null);
   }, []);
 
-  const value = useMemo(() => ({ ready, session, create, enter, leave }), [ready, session, create, enter, leave]);
+  const value = useMemo(
+    () => ({ ready, session, confirming, create, enter, confirm, expire, leave }),
+    [ready, session, confirming, create, enter, confirm, expire, leave],
+  );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 

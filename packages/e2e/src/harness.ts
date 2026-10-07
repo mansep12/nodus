@@ -10,6 +10,7 @@ import { addressVal, buildTransaction, confirm, read, sendAndConfirm, server, su
 const RP_ID = "nodus.example";
 const ORIGIN = `https://${RP_ID}`;
 const WASM_PATH = new URL("../../../target/wasm32v1-none/release/nodus.wasm", import.meta.url);
+const POLICY_WASM_PATH = new URL("../../../target/wasm32v1-none/release/allowlist.wasm", import.meta.url);
 
 /** The token has 7 decimals. */
 export const UNIT = 10_000_000n;
@@ -23,6 +24,8 @@ export interface World {
   token: string;
   nodus: NodusClient;
   nodusId: string;
+  /** The policy that limits a key to some functions of Nodus. */
+  allowlistId: string;
   /** Ledger in which the contract was created: where its events begin. */
   deployLedger: number;
 }
@@ -57,13 +60,22 @@ export async function deployWorld(): Promise<World> {
   const nodusId = Address.fromScVal(deployment.returnValue!).toString();
   log(`Nodus contract ${nodusId}`);
 
+  const policyWasm = readFileSync(POLICY_WASM_PATH);
+  await submit(operator, Operation.uploadContractWasm({ wasm: policyWasm }));
+  const policy = await submit(
+    operator,
+    Operation.createCustomContract({ address: Address.fromString(operator.publicKey()), wasmHash: hash(policyWasm) }),
+  );
+  const allowlistId = Address.fromScVal(policy.returnValue!).toString();
+  log(`Allowlist policy ${allowlistId}`);
+
   const nodus = new NodusClient({
     contractId: nodusId,
     rpcUrl: RPC_URL,
     networkPassphrase: NETWORK_PASSPHRASE,
     publicKey: operator.publicKey(),
   });
-  return { operator, token, nodus, nodusId, deployLedger: deployment.ledger };
+  return { operator, token, nodus, nodusId, allowlistId, deployLedger: deployment.ledger };
 }
 
 /** A business with a passkey smart account, holding `funds` of the test token. */
@@ -105,7 +117,13 @@ async function signAndSubmit(business: Business, tx: Parameters<SmartAccountKit[
 
 /** The creditor registers the debt and, unless told otherwise, the debtor accepts it. Returns its id. */
 export async function owe(world: World, debtor: Business, creditor: Business, amount: bigint, accept = true) {
-  const registration = await world.nodus.register({ creditor: creditor.address, debtor: debtor.address, amount });
+  const registration = await world.nodus.register({
+    creditor: creditor.address,
+    debtor: debtor.address,
+    amount,
+    reference: undefined,
+    due: undefined,
+  });
   const id = registration.result.unwrap();
   await signAndSubmit(creditor, registration);
   if (accept) await signAndSubmit(debtor, await world.nodus.accept({ id }));
