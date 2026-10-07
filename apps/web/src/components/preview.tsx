@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MotionConfig } from "motion/react";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
-import { FOCUS, SCENARIOS, type Scenario } from "@/lib/fixtures";
+import { SCENARIOS, type Scenario } from "@/lib/fixtures";
 import { RehearsalContext } from "@/lib/hooks";
 import { NodusProvider } from "@/lib/nodus";
 import { Shell } from "./shell";
@@ -25,7 +25,7 @@ export function Preview({ children }: { children: React.ReactNode }) {
     <MotionConfig reducedMotion="user">
       <QueryClientProvider client={queryClient}>
         <RehearsalContext.Provider value={true}>
-          <NodusProvider state={state} me={FOCUS.address} base="/muestra" leave={leave}>
+          <NodusProvider state={state} base="/muestra" leave={leave}>
             <Shell>{children}</Shell>
           </NodusProvider>
         </RehearsalContext.Provider>

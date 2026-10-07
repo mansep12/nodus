@@ -7,7 +7,13 @@ import type { CircleView, SettlementOption } from "@/lib/types";
 // Signing needs a passkey and the network; here we only watch what gets signed.
 const signCircle = mock<(circle: CircleView, me: string) => Promise<void>>(async () => {});
 mock.module("@/lib/actions", () => ({ signCircle, explain: (error: unknown) => String(error) }));
-mock.module("@/lib/api", () => ({ fetchState: async () => ({}), post: async () => ({}) }));
+mock.module("@/lib/api", () => ({
+  SessionLost: class SessionLost extends Error {},
+  fetchState: async () => ({}),
+  get: async () => ({}),
+  post: async () => ({}),
+  del: async () => ({}),
+}));
 const { CircleCard } = await import("./circle-card");
 const { History } = await import("./history");
 
@@ -20,6 +26,7 @@ const units = (amount: number) => (BigInt(amount) * 10_000_000n).toString();
 function option(key: string, [toMill, toCarrier, toBakery]: [number, number, number], signed: string[] = []): SettlementOption {
   const party = (address: string, owesLess: number, owedLess: number) => ({
     address,
+    known: true,
     owesLess: units(owesLess),
     owedLess: units(owedLess),
     net: (BigInt(units(owedLess)) - BigInt(units(owesLess))).toString(),
@@ -101,7 +108,7 @@ describe("CircleCard", () => {
     const { container } = show(<CircleCard circle={signing} me={BAKERY} nameOf={nameOf} ledger={1_000} />);
 
     expect(container.textContent).toContain("Firmando · 1 de 3");
-    expect(container.textContent).toContain("Ya firmaste. Faltan las firmas de Molino Andes, Fletes Ruta 5.");
+    expect(container.textContent).toContain("Ya firmaste. Faltan las firmas de Molino Andes y Fletes Ruta 5.");
     expect(container.textContent).toContain("Quedan cerca de 24 horas para reunir las firmas.");
     expect(screen.queryByRole("radiogroup")).toBeNull();
     expect(screen.queryByRole("button", { name: "Firmar con passkey" })).toBeNull();

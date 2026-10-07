@@ -9,6 +9,7 @@ import { useAction } from "@/lib/hooks";
 import { INK } from "@/lib/tones";
 import type { CircleView } from "@/lib/types";
 import { CircleGraph, netInWords } from "./circle-graph";
+import { CopyButton } from "./fields";
 import { Amount, Avatar, Bloom, Button, Chip, Problem, SEGMENTS, segment } from "./ui";
 
 interface Props {
@@ -19,6 +20,12 @@ interface Props {
   balance?: bigint | null;
   /** The latest ledger, to tell how long is left to sign. */
   ledger?: number;
+  /** Whether the viewer may sign settlements at all: a clerk may not. */
+  canSign?: boolean;
+  /** Where this card can be reached by link, to share it with the others. */
+  href?: string;
+  /** Whether the card was opened from such a link. */
+  highlighted?: boolean;
 }
 
 const SECONDS_PER_LEDGER = 5;
@@ -30,14 +37,15 @@ function timeLeft(ledgers: number): string {
 }
 
 /** Names the businesses the party knows and counts the ones it does not. */
-function inWords(names: string[], unnamed: number): string {
-  if (unnamed === 0) return names.join(", ");
+export function inWords(names: string[], unnamed: number): string {
+  const list = (items: string[]) => (items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} y ${items.at(-1)}`);
+  if (unnamed === 0) return list(names);
   const others = `${unnamed} ${unnamed === 1 ? "negocio" : "negocios"}${names.length > 0 ? " más" : ""}`;
   return names.length > 0 ? `${names.join(", ")} y ${others}` : others;
 }
 
 /** A circle of debts: what settling it does, who has signed, and the button to sign. */
-export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props) {
+export function CircleCard({ circle, me, nameOf, balance = null, ledger, canSign = true, href, highlighted = false }: Props) {
   const status = circle.proposal?.status;
   const settled = status === "settled";
   const signing = status === "open";
@@ -48,26 +56,29 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
   const [withoutMoney, setWithoutMoney] = useState(false);
   const shown: CircleView = canChoose && withoutMoney ? { ...circle, ...circle.netOnly } : circle;
 
-  const sign = useAction(me, () => signCircle(shown, me));
+  const sign = useAction(() => signCircle(shown, me));
   const mine = shown.parties.find((party) => party.address === me);
   const signedCount = shown.parties.filter((party) => party.signed).length;
   const movesMoney = shown.moved !== "0";
 
   // A business knows by name only the ones it deals with in the circle.
-  const dealsWith = new Set(shown.edges.flatMap((edge) => (edge.from === me ? [edge.to] : edge.to === me ? [edge.from] : [])));
-  const known = (address: string) => address === me || dealsWith.has(address);
+  const known = (address: string) => shown.parties.find((party) => party.address === address)?.known ?? false;
   const missing = shown.parties.filter((party) => !party.signed);
   const missingInWords = inWords(
     missing.filter((party) => known(party.address)).map((party) => nameOf(party.address)),
     missing.filter((party) => !known(party.address)).length,
   );
+  const strangers = shown.parties.filter((party) => !party.known).length;
 
   const net = BigInt(mine?.net ?? "0");
   const shortfall = balance !== null && net < 0n && balance < -net ? -net - balance : 0n;
 
   return (
-    <article className="grid overflow-hidden rounded-3xl border border-hairline bg-card lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)]">
-      <div className="relative isolate flex items-center justify-center overflow-hidden border-b border-hairline bg-canvas-soft px-2 py-4 lg:border-b-0 lg:border-r">
+    <article
+      id={`circulo-${circle.key.slice(0, 16)}`}
+      className={`grid overflow-hidden rounded-3xl border bg-card lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)] ${highlighted ? "border-ink shadow-lift" : "border-hairline"}`}
+    >
+      <div className="relative isolate flex flex-col items-center justify-center overflow-hidden border-b border-hairline bg-canvas-soft px-2 py-4 lg:border-b-0 lg:border-r">
         <Bloom
           color={settled ? INK.free.bloom : INK.neutral.bloom}
           className="left-1/2 top-1/2 -z-10 size-[82%] -translate-x-1/2 -translate-y-1/2 opacity-60"
@@ -81,7 +92,7 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
           <CircleGraph circle={shown} me={me} nameOf={nameOf} labels={false} />
           <ul className="mt-1 flex flex-col gap-2.5 px-4 pb-2 text-sm">
             {shown.parties
-              .filter((party) => known(party.address))
+              .filter((party) => party.known)
               .map((party) => (
                 <li key={party.address} className="flex items-center gap-3">
                   <Avatar name={nameOf(party.address)} size="sm" tone={party.address === me ? "ink" : "neutral"} />
@@ -94,6 +105,12 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
               ))}
           </ul>
         </div>
+        {strangers > 0 && (
+          <p className="px-6 pb-2 text-center text-label text-muted">
+            {strangers === 1 ? "Otro negocio del círculo no se nombra" : `Otros ${strangers} negocios del círculo no se nombran`}: solo ves
+            con quién tratas tú.
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col gap-6 p-6 sm:p-8">
@@ -120,7 +137,7 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
               "sin mover dinero."
             )}
           </h3>
-          <p className="mt-3 text-[15px] leading-relaxed text-body">
+          <p className="mt-3 text-body-sm leading-relaxed text-body">
             {settled
               ? `Los ${shown.parties.length} negocios firmaron y una sola transacción canceló las deudas${movesMoney ? " y pagó los saldos netos" : ""}.`
               : movesMoney
@@ -161,7 +178,7 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
               },
             ].map((figure) => (
               <div key={figure.label} className="px-4 py-3.5">
-                <dt className="text-[13px] text-muted">{figure.label}</dt>
+                <dt className="text-caption text-muted">{figure.label}</dt>
                 <dd className={`display mt-1 text-[26px] ${figure.tone}`}>
                   <Amount value={figure.value} symbol={false} />
                 </dd>
@@ -172,7 +189,7 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
 
         <div className="mt-auto flex flex-col gap-3">
           {!settled && shown.parties.length > 0 && (
-            <div className="flex items-center gap-3 text-[13px] text-muted">
+            <div className="flex items-center gap-3 text-caption text-muted">
               <span className="flex gap-1" aria-hidden>
                 {shown.parties.map((party) => (
                   <span
@@ -192,7 +209,7 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
               href={`${EXPLORER_URL}/tx/${shown.proposal?.txHash}`}
               target="_blank"
               rel="noreferrer"
-              className={`self-start text-[15px] font-medium underline underline-offset-4 ${INK.free.text}`}
+              className={`self-start text-body-sm font-medium underline underline-offset-4 ${INK.free.text}`}
             >
               Ver la transacción en la red
             </a>
@@ -204,6 +221,8 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
             <p className="text-sm text-body">
               Ya firmaste. {missing.length === 1 ? "Falta la firma de" : "Faltan las firmas de"} {missingInWords}.
             </p>
+          ) : !canSign ? (
+            <p className="text-sm text-body">Firmar una liquidación le toca al dueño de la cuenta; tu llave solo lleva los libros.</p>
           ) : (
             <div className="flex flex-col gap-3">
               {shortfall > 0n && (
@@ -218,8 +237,15 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
             </div>
           )}
 
+          {!settled && status !== "submitted" && href && mine && (
+            <p className="flex flex-wrap items-center gap-x-3 text-caption text-muted">
+              <span>¿Falta alguien? Mándale el enlace de este círculo.</span>
+              <CopyButton text={href} label="Copiar enlace" copied="Enlace copiado" className="!text-caption" />
+            </p>
+          )}
+
           {signing && ledger !== undefined && shown.proposal && (
-            <p className="text-[13px] text-muted">
+            <p className="text-caption text-muted">
               Quedan cerca de {timeLeft(shown.proposal.expirationLedger - ledger)} para reunir las firmas.
             </p>
           )}

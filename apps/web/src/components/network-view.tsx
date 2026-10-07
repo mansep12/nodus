@@ -7,10 +7,11 @@ import { post } from "@/lib/api";
 import { countPending, readBooks, type Books, type Side } from "@/lib/books";
 import { TOKEN_SYMBOL } from "@/lib/config";
 import { formatAmount, percent } from "@/lib/format";
-import { useAction } from "@/lib/hooks";
+import { STATE_KEY, useAction, useMediaQuery } from "@/lib/hooks";
 import { useNodus } from "@/lib/nodus";
 import { INK } from "@/lib/tones";
 import { DebtList, RegisterDebt } from "./debts";
+import { Sheet, useToast } from "./overlays";
 import { Pending } from "./pending";
 import { StarGraph, fold } from "./star-graph";
 import { Amount, Bloom, Button, Card, Eyebrow, PageHeader, Problem } from "./ui";
@@ -22,7 +23,7 @@ const SIDES = {
     verb: "te debe",
     whole: "de lo que te deben",
     empty: "Nadie te debe todavía.",
-    hint: "Registra más abajo lo que otro negocio te debe y aparecerá aquí.",
+    hint: "Registra lo que otro negocio te debe y aparecerá aquí.",
     bloom: "var(--color-lavender)",
   },
   debt: {
@@ -40,15 +41,17 @@ const SIDES = {
  * one side and the ones it owes on the other, and the books behind the drawing.
  */
 export function NetworkView() {
-  const { state, me, nameOf, base } = useNodus();
+  const { state, me, role, nameOf, base } = useNodus();
+  const notify = useToast();
   const [selected, setSelected] = useState<{ side: Side; address: string } | null>(null);
-  const faucet = useAction(me, () => post("/api/faucet", { address: me }));
+  const [registering, setRegistering] = useState(false);
+  const faucet = useAction(() => post("/api/faucet", {}), { onSuccess: () => notify(`Llegaron 1.000 ${TOKEN_SYMBOL} de prueba.`) });
 
   const books = { credit: readBooks(state, me, "credit", nameOf), debt: readBooks(state, me, "debt", nameOf) };
   const pending = countPending(state, me);
   const balance = state.balance === null ? null : BigInt(state.balance);
-  const named = state.businesses.some((business) => business.address === me);
   const inbox = `${base}/bandeja`;
+  const nothingYet = state.obligations.length === 0;
 
   // A business looked at in a star lights up in the list under it, and the other way round.
   const linked = (side: Side) => ({
@@ -60,30 +63,51 @@ export function NetworkView() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        eyebrow={named ? nameOf(me) : "Tu negocio"}
+        eyebrow={state.me.name ?? "Tu negocio"}
         title={
           <>
-            Red física · <em>empresa en foco</em>
+            Lo que te deben, <em>lo que debes</em>.
           </>
         }
         aside={
-          <div className="lg:text-right">
-            <Eyebrow>Saldo en {TOKEN_SYMBOL}</Eyebrow>
-            <p className="display mt-2 text-4xl">{balance === null ? "…" : <Amount value={balance} symbol={false} />}</p>
-            {state.faucet && (
-              <Button variant="quiet" className="mt-1" busy={faucet.isPending} onClick={() => faucet.mutate(undefined)}>
-                Obtener {TOKEN_SYMBOL} de prueba
-              </Button>
-            )}
+          <div className="flex flex-col items-start gap-4 lg:items-end">
+            <div className="lg:text-right">
+              <Eyebrow>Saldo en {TOKEN_SYMBOL}</Eyebrow>
+              <p className="display mt-2 text-4xl">{balance === null ? "…" : <Amount value={balance} symbol={false} />}</p>
+              {state.faucet && role === "owner" && (
+                <Button variant="quiet" className="mt-1" busy={faucet.isPending} onClick={() => faucet.mutate(undefined)}>
+                  Obtener {TOKEN_SYMBOL} de prueba
+                </Button>
+              )}
+            </div>
+            <Button size="lg" onClick={() => setRegistering(true)}>
+              Registrar una deuda
+            </Button>
           </div>
         }
       >
-        Tu negocio al centro: a un lado quién te debe, al otro a quién le debes. Cada cuerda es una deuda y su grosor, el monto.
+        Tu negocio al centro: a un lado quién te debe, al otro a quién le debes. Cada cuerda es una deuda y su grosor, el monto. Cuando las
+        deudas cierran un círculo, Nodus te avisa en la bandeja.
       </PageHeader>
       <Problem>{faucet.error}</Problem>
 
-      {!named && <NameBusiness address={me} />}
+      {state.me.name === null && role === "owner" && <NameBusiness />}
       <Pending toAccept={pending.toAccept} toSign={pending.toSign} href={inbox} />
+
+      {nothingYet && (
+        <Card className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
+          <div className="max-w-xl">
+            <h2 className="display text-2xl">Empieza por lo que te deben.</h2>
+            <p className="mt-2 text-body-sm text-body">
+              Registra una deuda de un cliente o pídele a un proveedor que registre la tuya. Para que otro negocio te encuentre, comparte tu
+              dirección: está arriba, junto a tu nombre.
+            </p>
+          </div>
+          <Button size="lg" onClick={() => setRegistering(true)}>
+            Registrar una deuda
+          </Button>
+        </Card>
+      )}
 
       <section className="grid gap-5 lg:grid-cols-2">
         <Star {...linked("credit")} books={books.credit} focus={nameOf(me)} inbox={inbox} />
@@ -92,19 +116,19 @@ export function NetworkView() {
 
       <NetPosition credit={books.credit.standing} debt={books.debt.standing} />
 
-      <RegisterDebt me={me} businesses={state.businesses} />
-
       <section className="grid items-start gap-5 lg:grid-cols-2">
-        <DebtList
-          title="Te deben"
-          empty={SIDES.credit.empty}
-          {...linked("credit")}
-          obligations={books.credit.obligations}
-          me={me}
-          nameOf={nameOf}
-        />
-        <DebtList title="Debes" empty={SIDES.debt.empty} {...linked("debt")} obligations={books.debt.obligations} me={me} nameOf={nameOf} />
+        <DebtList title="Te deben" empty={SIDES.credit.empty} {...linked("credit")} obligations={books.credit.obligations} />
+        <DebtList title="Debes" empty={SIDES.debt.empty} {...linked("debt")} obligations={books.debt.obligations} />
       </section>
+
+      <Sheet
+        open={registering}
+        onClose={() => setRegistering(false)}
+        title="Registrar una deuda a cobrar"
+        description="Anota lo que otro negocio te debe. Cuando ese negocio la acepte, la deuda podrá entrar en un círculo."
+      >
+        <RegisterDebt onDone={() => setRegistering(false)} />
+      </Sheet>
     </div>
   );
 }
@@ -123,6 +147,7 @@ interface StarProps {
 function Star({ side, books, focus, selected, onSelect, inbox }: StarProps) {
   const ink = INK[side];
   const words = SIDES[side];
+  const wide = useMediaQuery("(min-width: 640px)");
   const looking = selected === null ? undefined : fold(books.relations).find((relation) => relation.address === selected);
   const graph = { tone: side, focus, relations: books.relations, selected, onSelect };
   const empty = books.relations.length === 0;
@@ -133,10 +158,10 @@ function Star({ side, books, focus, selected, onSelect, inbox }: StarProps) {
       <Bloom color={words.bloom} className="left-[8%] top-[58%] -z-10 size-[44%] opacity-45" />
 
       <header className="px-7 pt-7">
-        <p className="eyebrow flex items-center gap-2 text-muted">
+        <h2 className="eyebrow flex items-center gap-2 text-muted">
           <span aria-hidden className={`size-2 rounded-full ${ink.background}`} />
           {words.title}
-        </p>
+        </h2>
         <p className="display mt-3 text-5xl">
           <Amount value={books.standing} />
         </p>
@@ -155,14 +180,18 @@ function Star({ side, books, focus, selected, onSelect, inbox }: StarProps) {
           <StarGraph {...graph} labels={false} />
         </div>
       ) : (
-        <>
-          <div className="hidden sm:block">
-            <StarGraph {...graph} />
-          </div>
-          <div className="sm:hidden">
-            <StarGraph {...graph} labels={false} />
-          </div>
-        </>
+        <StarGraph {...graph} labels={wide} />
+      )}
+
+      {!wide && !empty && (
+        // On a phone the names do not fit beside the leaves, so they go in a list.
+        <ul className="flex flex-wrap gap-x-4 gap-y-1 px-7 pb-3 text-caption text-body">
+          {fold(books.relations).map((relation) => (
+            <li key={relation.address} className={selected === relation.address ? "font-medium text-ink" : ""}>
+              {relation.name} <span className="tabular-nums text-muted">{formatAmount(relation.standing + relation.pending)}</span>
+            </li>
+          ))}
+        </ul>
       )}
 
       <footer className="mt-auto flex min-h-16 items-center border-t border-hairline bg-card/75 px-7 py-3.5 text-sm text-body">
@@ -185,7 +214,7 @@ function Star({ side, books, focus, selected, onSelect, inbox }: StarProps) {
             )}
           </p>
         ) : empty ? (
-          <p className="text-[13px] text-muted">{words.hint}</p>
+          <p className="text-caption text-muted">{words.hint}</p>
         ) : (
           <Legend side={side} />
         )}
@@ -198,7 +227,7 @@ function Star({ side, books, focus, selected, onSelect, inbox }: StarProps) {
 function Legend({ side }: { side: Side }) {
   const ink = INK[side];
   return (
-    <ul className="flex flex-wrap gap-x-6 gap-y-1.5 text-[13px] text-muted">
+    <ul className="flex flex-wrap gap-x-6 gap-y-1.5 text-caption text-muted">
       <li className="flex items-center gap-2">
         <svg viewBox="0 0 28 12" className="h-3 w-7" aria-hidden>
           <path d="M1 3 H27" strokeWidth={1.5} strokeLinecap="round" className={ink.stroke} />
@@ -242,7 +271,7 @@ function NetPosition({ credit, debt }: { credit: bigint; debt: bigint }) {
           <span className={`rounded-full ${INK.credit.background}`} style={{ width: `${share}%` }} />
           <span className={`rounded-full ${INK.debt.background}`} style={{ width: `${100 - share}%` }} />
         </div>
-        <div className="mt-2.5 flex justify-between gap-4 text-[13px] text-muted">
+        <div className="mt-2.5 flex justify-between gap-4 text-caption text-muted">
           <span>
             Te deben <span className="font-medium text-ink tabular-nums">{formatAmount(credit)}</span>
           </span>
@@ -263,12 +292,16 @@ function NetPosition({ credit, debt }: { credit: bigint; debt: bigint }) {
 }
 
 /** An account that entered without a name in the directory gets asked for one. */
-function NameBusiness({ address }: { address: string }) {
+function NameBusiness() {
   const queryClient = useQueryClient();
+  const notify = useToast();
   const [name, setName] = useState("");
   const save = useMutation({
-    mutationFn: () => post("/api/businesses", { address, name: name.trim() }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["state"] }),
+    mutationFn: () => post<{ warning?: string }>("/api/businesses", { name: name.trim() }),
+    onSuccess: (result) => {
+      notify(result.warning ?? "Nombre guardado.", result.warning ? "problem" : "done");
+      queryClient.invalidateQueries({ queryKey: STATE_KEY });
+    },
   });
   return (
     <Card>
@@ -283,7 +316,7 @@ function NameBusiness({ address }: { address: string }) {
           <span className="text-muted">¿Cómo se llama tu negocio? Así te verán los demás.</span>
           <input required minLength={2} maxLength={40} value={name} onChange={(event) => setName(event.target.value)} className="field" />
         </label>
-        <Button type="submit" busy={save.isPending} className="!h-11">
+        <Button type="submit" size="lg" busy={save.isPending}>
           Guardar
         </Button>
       </form>

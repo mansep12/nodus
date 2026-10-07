@@ -122,7 +122,7 @@ export function StarGraph({ tone, focus, relations, selected, onSelect, labels =
       <g pointerEvents="none">
         <circle cx={center.x} cy={center.y} r={FOCUS + 7} fill="none" strokeWidth={1.25} className={`${ink.stroke} opacity-45`} />
         <circle cx={center.x} cy={center.y} r={FOCUS} className="lift-high fill-ink" />
-        <text x={center.x} y={center.y + 6} textAnchor="middle" className="fill-white text-[17px] font-semibold tracking-wide">
+        <text x={center.x} y={center.y + 6} textAnchor="middle" className="fill-white text-title font-semibold tracking-wide">
           {initials(focus)}
         </text>
       </g>
@@ -233,7 +233,7 @@ function Leaf({ leaf, tone, index, angle, center, ring, cord, radius, active, di
             strokeDasharray={onlyPending ? "3 3.5" : undefined}
             className={`lift ${ink.stroke} ${active ? ink.softFill : "fill-card"} transition-colors`}
           />
-          <text y={4.5} textAnchor="middle" className={`fill-ink font-semibold ${radius < 18 ? "text-[10.5px]" : "text-[12px]"}`}>
+          <text y={4.5} textAnchor="middle" className={`fill-ink font-semibold ${radius < 18 ? "text-[10.5px]" : "text-label"}`}>
             {leaf.address === OTHERS ? `+${leaf.name.split(" ")[1]}` : initials(leaf.name)}
           </text>
         </motion.g>
@@ -269,11 +269,11 @@ function Label({ leaf, angle, radius, room }: LabelProps) {
     // Beside the leaf a name has what is left up to the edge; above or below it, twice that.
     {
       text: clip(leaf.name, Math.floor(((side === "left" || side === "right" ? room - radius - 12 : 2 * room) - 6) / LETTER)),
-      className: "fill-ink text-[13px] font-medium",
+      className: "fill-ink text-caption font-medium",
     },
-    { text: formatAmount(onlyPending ? leaf.pending : leaf.standing), className: "fill-body text-[13px] tabular-nums" },
+    { text: formatAmount(onlyPending ? leaf.pending : leaf.standing), className: "fill-body text-caption tabular-nums" },
     ...(leaf.pending > 0n
-      ? [{ text: onlyPending ? "por aceptar" : `+ ${formatAmount(leaf.pending)} por aceptar`, className: "fill-muted text-[11px]" }]
+      ? [{ text: onlyPending ? "por aceptar" : `+ ${formatAmount(leaf.pending)} por aceptar`, className: "fill-muted text-tiny" }]
       : []),
   ];
   const LINE = 16;

@@ -45,8 +45,9 @@ export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
   const count = parties.length;
   const mine = parties.findIndex((party) => party.address === me);
 
-  const owedByMe = new Map(edges.filter((edge) => edge.from === me).map((edge) => [edge.to, edge.amount]));
-  const owedToMe = new Map(edges.filter((edge) => edge.to === me).map((edge) => [edge.from, edge.amount]));
+  // Only the viewer's own debts come with an amount; the rest of the ring is drawn without one.
+  const owedByMe = new Map(edges.filter((edge) => edge.from === me).map((edge) => [edge.to, edge.amount ?? "0"]));
+  const owedToMe = new Map(edges.filter((edge) => edge.to === me).map((edge) => [edge.from, edge.amount ?? "0"]));
   const kindOf = (address: string) => (address === me ? "me" : owedByMe.has(address) || owedToMe.has(address) ? "known" : "unknown");
 
   // The parties come in the order their debts chain, and go clockwise. The
@@ -68,7 +69,7 @@ export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
     let end = to - (RADIUS[kindOf(edge.to)] + 12) / RING;
     while (end < start) end += 2 * Math.PI;
     const [tail, head] = [at(start), at(end)];
-    const share = tone === "neutral" || largestOfMine === 0n ? 0 : Math.sqrt(Number(BigInt(edge.amount)) / Number(largestOfMine));
+    const share = tone === "neutral" || largestOfMine === 0n ? 0 : Math.sqrt(Number(BigInt(edge.amount ?? "0")) / Number(largestOfMine));
     return [
       {
         ...edge,
@@ -177,7 +178,7 @@ export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
                 <text
                   y={kind === "me" ? 5.5 : 4.5}
                   textAnchor="middle"
-                  className={`font-semibold ${kind === "me" ? "fill-white text-[15px]" : "fill-ink text-[12.5px]"}`}
+                  className={`font-semibold ${kind === "me" ? "fill-white text-body-sm" : "fill-ink text-[12.5px]"}`}
                 >
                   {initials(name)}
                 </text>
@@ -205,11 +206,11 @@ export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
             </motion.g>
             {labels && kind !== "unknown" && (
               <g pointerEvents="none">
-                <text x={labelX} y={labelY} textAnchor={anchorText} className="fill-ink text-[13px] font-medium">
+                <text x={labelX} y={labelY} textAnchor={anchorText} className="fill-ink text-caption font-medium">
                   {clip(name, 22)}
                   {kind === "me" && " (tú)"}
                 </text>
-                <text x={labelX} y={labelY + 16} textAnchor={anchorText} className="fill-muted text-[12px] tabular-nums">
+                <text x={labelX} y={labelY + 16} textAnchor={anchorText} className="fill-muted text-label tabular-nums">
                   {caption}
                 </text>
               </g>
@@ -219,7 +220,7 @@ export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
                 x={labelX}
                 y={labelY + (side === "above" ? 12 : side === "below" ? -2 : 7)}
                 textAnchor={anchorText}
-                className="fill-muted text-[12px]"
+                className="fill-muted text-label"
                 pointerEvents="none"
               >
                 Otro negocio · {caption}

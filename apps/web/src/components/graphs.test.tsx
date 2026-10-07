@@ -6,7 +6,13 @@ import { FOCUS, SCENARIOS } from "@/lib/fixtures";
 
 // Signing needs a passkey and the network; nothing here signs.
 mock.module("@/lib/actions", () => ({ signCircle: async () => {}, explain: (error: unknown) => String(error) }));
-mock.module("@/lib/api", () => ({ fetchState: async () => ({}), post: async () => ({}) }));
+mock.module("@/lib/api", () => ({
+  SessionLost: class SessionLost extends Error {},
+  fetchState: async () => ({}),
+  get: async () => ({}),
+  post: async () => ({}),
+  del: async () => ({}),
+}));
 const { CircleCard } = await import("./circle-card");
 const { CircleGraph } = await import("./circle-graph");
 const { StarGraph, fold, OTHERS } = await import("./star-graph");
