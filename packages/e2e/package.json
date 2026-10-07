@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "deploy": "bun run src/deploy.ts",
     "web": "bun run src/web.ts",
-    "neighbors": "bun run src/neighbors.ts"
+    "neighbors": "bun run src/neighbors.ts",
+    "roles": "bun run src/roles.ts"
   },
   "dependencies": {
     "@nodus/api": "workspace:*",

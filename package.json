@@ -20,6 +20,7 @@
     "db:migrate": "bun run --filter @nodus/db migrate",
     "e2e:web": "bun run --filter @nodus/e2e web",
     "demo:neighbors": "bun run --filter @nodus/e2e neighbors",
+    "e2e:roles": "bun run --filter @nodus/e2e roles",
     "lint": "eslint packages && bun run --filter @nodus/web lint",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
