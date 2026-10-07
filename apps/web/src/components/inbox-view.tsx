@@ -19,7 +19,9 @@ export function InboxView() {
   const mine = circles.length + inbox.toAccept.length;
   const underWay = inbox.waiting.length + inbox.awaited.length;
 
-  const card = (circle: CircleView) => <CircleCard key={circle.key} circle={circle} me={me} nameOf={nameOf} balance={balance} ledger={state.ledger} />;
+  const card = (circle: CircleView) => (
+    <CircleCard key={circle.key} circle={circle} me={me} nameOf={nameOf} balance={balance} ledger={state.ledger} />
+  );
 
   return (
     <div className="flex flex-col gap-12">

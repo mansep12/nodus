@@ -31,7 +31,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
         <nav aria-label="Páginas" className={`${SEGMENTS} order-last w-full justify-center md:order-none md:w-auto`}>
           {pages.map((page) => (
-            <Link key={page.href} href={page.href} aria-current={pathname === page.href ? "page" : undefined} className={`${segment(pathname === page.href)} max-md:flex-1 max-md:justify-center`}>
+            <Link
+              key={page.href}
+              href={page.href}
+              aria-current={pathname === page.href ? "page" : undefined}
+              className={`${segment(pathname === page.href)} max-md:flex-1 max-md:justify-center`}
+            >
               {page.label}
               {page.count > 0 && (
                 <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-primary px-1 text-[11px] font-semibold leading-none text-white tabular-nums">
@@ -77,7 +82,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
 /** Where anyone can check on the network what the app says. */
 function ExplorerLink({ label, contract }: { label: string; contract: string }) {
   return (
-    <a href={`${EXPLORER_URL}/contract/${contract}`} target="_blank" rel="noreferrer" className="underline-offset-4 hover:text-ink hover:underline">
+    <a
+      href={`${EXPLORER_URL}/contract/${contract}`}
+      target="_blank"
+      rel="noreferrer"
+      className="underline-offset-4 hover:text-ink hover:underline"
+    >
       {label} <span className="font-mono text-xs">{shortAddress(contract)}</span>
     </a>
   );

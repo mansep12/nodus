@@ -62,7 +62,9 @@ describe("CircleCard", () => {
 describe("StarGraph", () => {
   test("draws a leaf for every business on that side of the books", () => {
     const { relations } = readBooks(state, me, "credit", nameOf);
-    const { container } = render(<StarGraph tone="credit" focus="Panadería Sur" relations={relations} selected={null} onSelect={() => {}} />);
+    const { container } = render(
+      <StarGraph tone="credit" focus="Panadería Sur" relations={relations} selected={null} onSelect={() => {}} />,
+    );
 
     const leaves = [...container.querySelectorAll('[role="img"]')].map((leaf) => leaf.getAttribute("aria-label"));
     expect(leaves).toContain("Café Cordillera te debe 620 USDC");

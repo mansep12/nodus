@@ -68,8 +68,8 @@ export function WelcomeScreen({ onCreate, creating, onEnter, entering, problem, 
             <em>Desanuda</em> las deudas entre negocios.
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-body">
-            Cuando A le debe a B, B le debe a C y C le debe a A, todos esperan cobrar para poder pagar. Nodus encuentra ese círculo,
-            cancela las deudas a la vez y mueve solo el saldo neto.
+            Cuando A le debe a B, B le debe a C y C le debe a A, todos esperan cobrar para poder pagar. Nodus encuentra ese círculo, cancela
+            las deudas a la vez y mueve solo el saldo neto.
           </p>
 
           <form
@@ -98,8 +98,8 @@ export function WelcomeScreen({ onCreate, creating, onEnter, entering, problem, 
               </Button>
             </div>
             <p className="text-sm text-muted">
-              Tu passkey es la llave de la cuenta: la guarda tu dispositivo y firmas con tu huella o tu rostro. No hay contraseñas ni
-              frases que anotar.
+              Tu passkey es la llave de la cuenta: la guarda tu dispositivo y firmas con tu huella o tu rostro. No hay contraseñas ni frases
+              que anotar.
             </p>
           </form>
 
@@ -153,7 +153,9 @@ export function WelcomeScreen({ onCreate, creating, onEnter, entering, problem, 
         ))}
       </ol>
 
-      <footer className="py-8 text-[13px] text-muted">Nodus liquida sobre Stellar. Las cuentas son passkeys y nadie paga comisiones.</footer>
+      <footer className="py-8 text-[13px] text-muted">
+        Nodus liquida sobre Stellar. Las cuentas son passkeys y nadie paga comisiones.
+      </footer>
     </div>
   );
 }
@@ -206,7 +208,10 @@ function Demonstration() {
 
   return (
     <figure className="relative isolate overflow-hidden rounded-3xl border border-hairline bg-canvas-soft">
-      <Bloom color={step > 3 ? INK.free.bloom : INK.credit.bloom} className="left-[58%] top-[44%] -z-10 size-[80%] -translate-x-1/2 -translate-y-1/2 opacity-75" />
+      <Bloom
+        color={step > 3 ? INK.free.bloom : INK.credit.bloom}
+        className="left-[58%] top-[44%] -z-10 size-[80%] -translate-x-1/2 -translate-y-1/2 opacity-75"
+      />
       <Bloom color={INK.debt.bloom} className="left-[4%] top-[52%] -z-10 size-[52%] opacity-55" />
       <Bloom color={INK.neutral.bloom} className="left-[52%] top-[-8%] -z-10 size-[46%] opacity-50" />
       <div className="flex justify-center px-2 pt-6">
@@ -216,7 +221,10 @@ function Demonstration() {
         <span>{CAPTIONS[step]}</span>
         <span className="flex gap-1" aria-hidden>
           {CAPTIONS.map((_, index) => (
-            <span key={index} className={`h-1.5 w-4 rounded-full transition-colors ${index === step ? "bg-primary" : "bg-hairline-strong"}`} />
+            <span
+              key={index}
+              className={`h-1.5 w-4 rounded-full transition-colors ${index === step ? "bg-primary" : "bg-hairline-strong"}`}
+            />
           ))}
         </span>
       </figcaption>

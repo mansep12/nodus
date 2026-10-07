@@ -102,18 +102,12 @@ export const softwareAuthenticator = {
     };
   },
 
-  async startAuthentication({
-    optionsJSON,
-  }: {
-    optionsJSON: { challenge: string; allowCredentials?: Array<{ id: string }> };
-  }) {
+  async startAuthentication({ optionsJSON }: { optionsJSON: { challenge: string; allowCredentials?: Array<{ id: string }> } }) {
     const credentialId = optionsJSON.allowCredentials?.[0]?.id ?? chosen;
     const passkey = credentialId ? load()[credentialId] : undefined;
     if (!credentialId || !passkey) throw new DOMException("No passkey to sign with", "NotAllowedError");
 
-    const key = await crypto.subtle.importKey("jwk", passkey.privateKey, { name: "ECDSA", namedCurve: "P-256" }, false, [
-      "sign",
-    ]);
+    const key = await crypto.subtle.importKey("jwk", passkey.privateKey, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
     const authData = await authenticatorData();
     const clientDataJSON = clientData("webauthn.get", optionsJSON.challenge);
     const signed = concat(authData, await sha256(clientDataJSON));

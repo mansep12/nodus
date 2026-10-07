@@ -21,10 +21,12 @@ export async function POST(request: Request) {
     const { operation, result } = await simulate(TOKEN_CONTRACT, "mint", args);
     const expiration = (await latestLedger()) + 100;
     const issuer = Keypair.fromSecret(issuerSecret);
-    const auth = await Promise.all(
-      (result.auth ?? []).map((entry) => authorizeEntry(entry, issuer, expiration, NETWORK_PASSPHRASE)),
+    const auth = await Promise.all((result.auth ?? []).map((entry) => authorizeEntry(entry, issuer, expiration, NETWORK_PASSPHRASE)));
+    const txHash = await relay(
+      apiKey,
+      operation.func.toXDR("base64"),
+      auth.map((entry) => entry.toXDR("base64")),
     );
-    const txHash = await relay(apiKey, operation.func.toXDR("base64"), auth.map((entry) => entry.toXDR("base64")));
     return { txHash, amount: AMOUNT.toString() };
   });
 }

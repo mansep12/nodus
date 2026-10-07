@@ -2,15 +2,7 @@
 import { readFileSync } from "node:fs";
 import { Address, Asset, Keypair, Operation, hash, nativeToScVal, rpc, xdr } from "@stellar/stellar-sdk";
 import { Client as NodusClient, type Clearing } from "@nodus/contract-client";
-import {
-  ACCOUNT_WASM_HASH,
-  NETWORK_PASSPHRASE,
-  RPC_URL,
-  WEBAUTHN_VERIFIER,
-  defaultRuleIds,
-  entryAddress,
-  relay,
-} from "@nodus/stellar";
+import { ACCOUNT_WASM_HASH, NETWORK_PASSPHRASE, RPC_URL, WEBAUTHN_VERIFIER, defaultRuleIds, entryAddress, relay } from "@nodus/stellar";
 import { MemoryStorage, SmartAccountKit } from "smart-account-kit";
 import { SoftwarePasskey } from "./software-passkey.ts";
 import { addressVal, buildTransaction, confirm, read, sendAndConfirm, server, submit } from "./testnet.ts";

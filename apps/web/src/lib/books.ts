@@ -38,14 +38,17 @@ export const partyOf = (circle: CircleView, address: string) => circle.parties.f
 export function readBooks(state: StateView, me: string, side: Side, nameOf: (address: string) => string): Books {
   const obligations = state.obligations.filter((obligation) => (side === "credit" ? obligation.creditor : obligation.debtor) === me);
   const netted = new Set(
-    state.circles.filter((circle) => isLive(circle) && partyOf(circle, me)).flatMap((circle) => circle.clearings.map((clearing) => clearing.id)),
+    state.circles
+      .filter((circle) => isLive(circle) && partyOf(circle, me))
+      .flatMap((circle) => circle.clearings.map((clearing) => clearing.id)),
   );
 
   const relations = new Map<string, Relation>();
   for (const obligation of obligations.filter(isOpen)) {
     const address = side === "credit" ? obligation.debtor : obligation.creditor;
     let relation = relations.get(address);
-    if (!relation) relations.set(address, (relation = { address, name: nameOf(address), standing: 0n, pending: 0n, debts: 0, inCircle: false }));
+    if (!relation)
+      relations.set(address, (relation = { address, name: nameOf(address), standing: 0n, pending: 0n, debts: 0, inCircle: false }));
     if (obligation.status === "accepted") relation.standing += BigInt(obligation.amount);
     else relation.pending += BigInt(obligation.amount);
     relation.debts += 1;

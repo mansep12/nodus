@@ -58,11 +58,7 @@ const after = await Promise.all(businesses.map((b) => balance(world, b)));
 businesses.forEach((b, i) => log(`  ${b.name}: ${units(after[i]! - before[i]!)}`));
 
 log(`Indexed ${await sync(db, indexing)} events`);
-const rows = await db
-  .select()
-  .from(obligations)
-  .where(eq(obligations.contractId, world.nodusId))
-  .orderBy(asc(obligations.id));
+const rows = await db.select().from(obligations).where(eq(obligations.contractId, world.nodusId)).orderBy(asc(obligations.id));
 console.table(
   rows.map((row) => ({
     id: Number(row.id),

@@ -192,7 +192,16 @@ function Leaf({ leaf, tone, index, angle, center, ring, cord, radius, active, di
           transition={{ duration: 0.5, delay }}
         />
       ) : (
-        <motion.line x1={center.x} y1={center.y} x2={x} y2={y} strokeWidth={cord} strokeLinecap="round" className={ink.stroke} style={draw.style} />
+        <motion.line
+          x1={center.x}
+          y1={center.y}
+          x2={x}
+          y2={y}
+          strokeWidth={cord}
+          strokeLinecap="round"
+          className={ink.stroke}
+          style={draw.style}
+        />
       )}
       {active && <Bead x={x} y={y} center={center} inward={tone === "credit"} className={ink.stroke} />}
 
@@ -258,7 +267,10 @@ function Label({ leaf, angle, radius, room }: LabelProps) {
 
   const lines = [
     // Beside the leaf a name has what is left up to the edge; above or below it, twice that.
-    { text: clip(leaf.name, Math.floor(((side === "left" || side === "right" ? room - radius - 12 : 2 * room) - 6) / LETTER)), className: "fill-ink text-[13px] font-medium" },
+    {
+      text: clip(leaf.name, Math.floor(((side === "left" || side === "right" ? room - radius - 12 : 2 * room) - 6) / LETTER)),
+      className: "fill-ink text-[13px] font-medium",
+    },
     { text: formatAmount(onlyPending ? leaf.pending : leaf.standing), className: "fill-body text-[13px] tabular-nums" },
     ...(leaf.pending > 0n
       ? [{ text: onlyPending ? "por aceptar" : `+ ${formatAmount(leaf.pending)} por aceptar`, className: "fill-muted text-[11px]" }]
@@ -305,5 +317,15 @@ function Bead({ x, y, center, inward, className }: BeadProps) {
   const cy = useTransform([progress, y], ([step, leaf]: number[]) => leaf! + (center.y - leaf!) * fromLeaf(step!));
   const opacity = useTransform(progress, [0, 0.15, 0.85, 1], [0, 1, 1, 0]);
 
-  return <motion.circle cx={cx} cy={cy} r={3.6} strokeWidth={1.75} className={`fill-card ${className}`} style={{ opacity }} pointerEvents="none" />;
+  return (
+    <motion.circle
+      cx={cx}
+      cy={cy}
+      r={3.6}
+      strokeWidth={1.75}
+      className={`fill-card ${className}`}
+      style={{ opacity }}
+      pointerEvents="none"
+    />
+  );
 }

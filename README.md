@@ -27,10 +27,10 @@ Nodus detecta esos círculos, cancela todas las deudas a la vez y liquida solo e
 
 Para un círculo donde A le debe 100 a B, B le debe 80 a C y C le debe 90 a A:
 
-| | Qué se cancela | Dinero que se mueve |
-|---|---|---|
-| **Liquidar todo** | Las tres deudas completas: 270 | 20 (A y C pagan 10 cada uno, B recibe 20) |
-| **Sin mover dinero** | Lo que las deudas tienen en común: 240 | 0. Quedan vigentes 20 y 10 |
+|                      | Qué se cancela                         | Dinero que se mueve                       |
+| -------------------- | -------------------------------------- | ----------------------------------------- |
+| **Liquidar todo**    | Las tres deudas completas: 270         | 20 (A y C pagan 10 cada uno, B recibe 20) |
+| **Sin mover dinero** | Lo que las deudas tienen en común: 240 | 0. Quedan vigentes 20 y 10                |
 
 En los dos casos nadie queda mejor ni peor que antes: lo que cada negocio deja de cobrar es igual a lo que deja de deber más lo que recibe.
 

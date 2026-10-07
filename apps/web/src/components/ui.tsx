@@ -92,7 +92,11 @@ export function Amount({ value, symbol = true }: { value: bigint | string; symbo
   return (
     <span className="tabular-nums">
       {formatAmount(value)}
-      {symbol && <span className="ml-[0.28em] font-sans text-[clamp(10px,0.34em,14px)] font-medium tracking-[0.06em] text-muted">{TOKEN_SYMBOL}</span>}
+      {symbol && (
+        <span className="ml-[0.28em] font-sans text-[clamp(10px,0.34em,14px)] font-medium tracking-[0.06em] text-muted">
+          {TOKEN_SYMBOL}
+        </span>
+      )}
     </span>
   );
 }
@@ -143,7 +147,15 @@ const KNOT = [
 
 export function Knot({ className = "", strokeWidth = 2.2 }: { className?: string; strokeWidth?: number }) {
   return (
-    <svg viewBox="0 0 32 32" className={className} fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" aria-hidden>
+    <svg
+      viewBox="0 0 32 32"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      aria-hidden
+    >
       {KNOT.map((strand) => (
         <path key={strand.slice(0, 12)} d={strand} />
       ))}

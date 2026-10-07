@@ -31,15 +31,13 @@ const byId = (a: Clearing, b: Clearing) => (a.id < b.id ? -1 : a.id > b.id ? 1 :
 /** Identifies a set of clearings regardless of the order they are given in. */
 export function clearingsKey(clearings: Clearing[]): string {
   const canonical = [...clearings].sort(byId).map((c) => `${c.id}:${c.amount}`);
-  return createHash("sha256").update(`${NODUS_CONTRACT}|${canonical.join(",")}`).digest("hex");
+  return createHash("sha256")
+    .update(`${NODUS_CONTRACT}|${canonical.join(",")}`)
+    .digest("hex");
 }
 
 const underWay = (key: string) =>
-  and(
-    eq(proposals.contractId, NODUS_CONTRACT),
-    eq(proposals.key, key),
-    inArray(proposals.status, ["open", "submitted"]),
-  );
+  and(eq(proposals.contractId, NODUS_CONTRACT), eq(proposals.key, key), inArray(proposals.status, ["open", "submitted"]));
 
 /**
  * What `address` must sign to settle `clearings`. The first party to ask
@@ -105,9 +103,9 @@ async function create(db: Db, clearings: Clearing[], key: string): Promise<Propo
   return db.transaction(async (tx) => {
     const [created] = await tx.insert(proposals).values(proposal).onConflictDoNothing().returning();
     if (!created) return undefined;
-    await tx.insert(authorizations).values(
-      entries.map((entry) => ({ proposalId: created.id, address: entryAddress(entry), entry: entry.toXDR("base64") })),
-    );
+    await tx
+      .insert(authorizations)
+      .values(entries.map((entry) => ({ proposalId: created.id, address: entryAddress(entry), entry: entry.toXDR("base64") })));
     return created;
   });
 }
@@ -135,7 +133,12 @@ export async function addSignature(proposalId: string, address: string, signedEn
   await db.update(authorizations).set({ signedEntry, signedAt: new Date() }).where(mine);
 
   const all = await db.select().from(authorizations).where(eq(authorizations.proposalId, proposalId));
-  if (all.every((a) => a.signedEntry)) await settle(db, proposal, all.map((a) => a.signedEntry!));
+  if (all.every((a) => a.signedEntry))
+    await settle(
+      db,
+      proposal,
+      all.map((a) => a.signedEntry!),
+    );
 }
 
 /**
@@ -191,8 +194,7 @@ async function settle(db: Db, proposal: Proposal, signedEntries: string[]): Prom
  * whose debts changed underneath them, and any left mid-submission.
  */
 export async function closeStaleProposals(db: Db): Promise<void> {
-  const fail = (id: string, error: string) =>
-    db.update(proposals).set({ status: "failed", error }).where(eq(proposals.id, id));
+  const fail = (id: string, error: string) => db.update(proposals).set({ status: "failed", error }).where(eq(proposals.id, id));
   const here = eq(proposals.contractId, NODUS_CONTRACT);
 
   await db
@@ -200,7 +202,10 @@ export async function closeStaleProposals(db: Db): Promise<void> {
     .set({ status: "failed", error: "El plazo para firmar venció." })
     .where(and(here, eq(proposals.status, "open"), lte(proposals.expirationLedger, await latestLedger())));
 
-  const open = await db.select().from(proposals).where(and(here, eq(proposals.status, "open")));
+  const open = await db
+    .select()
+    .from(proposals)
+    .where(and(here, eq(proposals.status, "open")));
   if (open.length > 0) {
     const owed = new Map((await settleable(db, NODUS_CONTRACT)).map((o) => [o.id.toString(), o.amount]));
     for (const proposal of open) {

@@ -60,11 +60,7 @@ beforeEach(async () => {
 
 describe("sync", () => {
   test("follows an obligation from registration to settlement", async () => {
-    const { server } = fakeRpc([
-      registered(0n, 100n),
-      ["accepted", 0n, {}],
-      ["cleared", 0n, { amount: 30n, remaining: 70n }],
-    ]);
+    const { server } = fakeRpc([registered(0n, 100n), ["accepted", 0n, {}], ["cleared", 0n, { amount: 30n, remaining: 70n }]]);
 
     expect(await sync(db, { server, contractId: CONTRACT })).toBe(3);
 
@@ -145,10 +141,7 @@ describe("sync", () => {
 
     expect(await sync(db, { server, contractId: CONTRACT })).toBe(1);
 
-    expect(requests.slice(0, 2)).toEqual([
-      expect.objectContaining({ cursor: longAgo }),
-      expect.objectContaining({ startLedger: 70 }),
-    ]);
+    expect(requests.slice(0, 2)).toEqual([expect.objectContaining({ cursor: longAgo }), expect.objectContaining({ startLedger: 70 })]);
     const [stored] = await db.select().from(cursors);
     expect(stored!.cursor).not.toBe(longAgo);
   });

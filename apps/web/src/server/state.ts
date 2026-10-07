@@ -90,9 +90,7 @@ export async function getState(address: string | null): Promise<StateView> {
 
   /** A circle someone has started signing. */
   const started = (proposal: Proposal): CircleView => {
-    const signed = new Set(
-      signatureRows.filter((row) => row.proposalId === proposal.id && row.signedEntry).map((row) => row.address),
-    );
+    const signed = new Set(signatureRows.filter((row) => row.proposalId === proposal.id && row.signedEntry).map((row) => row.address));
     return {
       ...option(parseClearings(proposal.clearings), proposal.status === "settled" ? everybody : (a) => signed.has(a)),
       proposal: {
@@ -109,9 +107,7 @@ export async function getState(address: string | null): Promise<StateView> {
   // searched for in what is left.
   const underWay = proposalRows.filter((p) => p.status === "open" || p.status === "submitted").reverse();
   const candidates = findCandidates(
-    obligationRows
-      .filter((row) => row.status === "accepted")
-      .map(({ id, debtor, creditor, amount }) => ({ id, debtor, creditor, amount })),
+    obligationRows.filter((row) => row.status === "accepted").map(({ id, debtor, creditor, amount }) => ({ id, debtor, creditor, amount })),
     underWay.map((proposal) => parseClearings(proposal.clearings)),
   );
   const failed = (key: string) => proposalRows.find((p) => p.key === key && p.status === "failed");
@@ -163,10 +159,7 @@ export async function getState(address: string | null): Promise<StateView> {
 }
 
 /** Orders the parties of a circle the way its debts chain: each one owes the next. */
-function alongTheCircle<Party extends { address: string }>(
-  parties: Party[],
-  edges: Array<{ from: string; to: string }>,
-): Party[] {
+function alongTheCircle<Party extends { address: string }>(parties: Party[], edges: Array<{ from: string; to: string }>): Party[] {
   const next = new Map(edges.map((edge) => [edge.from, edge.to]));
   const order: string[] = [];
   for (let at: string | undefined = parties[0]?.address; at && !order.includes(at); at = next.get(at)) order.push(at);

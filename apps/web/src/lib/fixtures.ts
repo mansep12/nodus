@@ -12,7 +12,10 @@ const hash = (seed: string) => (seed + "c41d9e7a05b36f82").repeat(4).slice(0, 64
 
 /** An address that looks like a smart account's. */
 function business(name: string): BusinessView {
-  const letters = name.normalize("NFD").toUpperCase().replace(/[^A-Z2-7]/g, "");
+  const letters = name
+    .normalize("NFD")
+    .toUpperCase()
+    .replace(/[^A-Z2-7]/g, "");
   return { name, address: `C${letters}${"QX7N4KD2TLA5WZ3RJB6MHE".repeat(3)}`.slice(0, 56) };
 }
 
@@ -32,7 +35,23 @@ const aserradero = business("Aserradero Lonquimay");
 const envases = business("Envases Biobío");
 const agricola = business("Agrícola Santa Elena");
 
-const CAST = [me, molino, fletes, lacteos, cafe, donTito, imprenta, frutos, ferreteria, vina, austral, taller, aserradero, envases, agricola];
+const CAST = [
+  me,
+  molino,
+  fletes,
+  lacteos,
+  cafe,
+  donTito,
+  imprenta,
+  frutos,
+  ferreteria,
+  vina,
+  austral,
+  taller,
+  aserradero,
+  envases,
+  agricola,
+];
 
 /** Builds the debts of a state, numbering them as the contract would. */
 function ledgerBook() {
@@ -129,12 +148,24 @@ function full(signed: boolean): StateView {
   const agricolaTito = owe(agricola, donTito, 320);
   // What was already untied.
   const past = [owe(me, vina, 80, "settled"), owe(vina, cafe, 80, "settled"), owe(cafe, me, 80, "settled")];
-  const older = [owe(me, taller, 260, "settled"), owe(taller, envases, 200, "settled"), owe(envases, austral, 240, "settled"), owe(austral, me, 220, "settled")];
-  const elsewhere = [owe(molino, agricola, 120, "settled"), owe(agricola, aserradero, 95, "settled"), owe(aserradero, molino, 110, "settled")];
+  const older = [
+    owe(me, taller, 260, "settled"),
+    owe(taller, envases, 200, "settled"),
+    owe(envases, austral, 240, "settled"),
+    owe(austral, me, 220, "settled"),
+  ];
+  const elsewhere = [
+    owe(molino, agricola, 120, "settled"),
+    owe(agricola, aserradero, 95, "settled"),
+    owe(aserradero, molino, 110, "settled"),
+  ];
 
   const long = [meFerreteria, ferreteriaAserradero, aserraderoEnvases, envasesFrutos, frutosMe];
   const waitingForMe: CircleView = {
-    ...settle(long, everyone(long).filter((address) => address !== me.address)),
+    ...settle(
+      long,
+      everyone(long).filter((address) => address !== me.address),
+    ),
     proposal: { id: "long", status: "open", expirationLedger: LEDGER + 9_400 },
   };
   const wide = [meLacteos, lacteosAgricola, agricolaTito, titoMe];
@@ -169,12 +200,21 @@ function empty(): StateView {
 /** A business with more relations than a star can name. */
 function crowded(): StateView {
   const { obligations, owe } = ledgerBook();
-  const more = ["Botillería El Faro", "Carnes Pampa Sur", "Verdulería La Vega", "Pastas Nonna Rosa", "Hielos Antártica", "Aceites Huasco"].map(business);
+  const more = [
+    "Botillería El Faro",
+    "Carnes Pampa Sur",
+    "Verdulería La Vega",
+    "Pastas Nonna Rosa",
+    "Hielos Antártica",
+    "Aceites Huasco",
+  ].map(business);
   const amounts = [820, 640, 415, 380, 260, 230, 190, 150, 120, 90, 60, 45, 30];
   [cafe, donTito, fletes, frutos, vina, taller, ...more, agricola].forEach((debtor, index) =>
     owe(debtor, me, amounts[index]!, index === 9 ? "pending" : "accepted"),
   );
-  [molino, lacteos, imprenta, ferreteria, austral, aserradero, envases].forEach((creditor, index) => owe(me, creditor, [540, 310, 75, 210, 130, 95, 48][index]!));
+  [molino, lacteos, imprenta, ferreteria, austral, aserradero, envases].forEach((creditor, index) =>
+    owe(me, creditor, [540, 310, 75, 210, 130, 95, 48][index]!),
+  );
   return { ...base, businesses: [...CAST, ...more], obligations, circles: [], settlements: [], balance: units(2_400) };
 }
 

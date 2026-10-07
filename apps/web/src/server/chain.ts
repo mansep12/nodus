@@ -59,8 +59,7 @@ export async function accountSigner(address: string): Promise<PasskeySigner | un
   }
   const [only, ...others] = rule.signers;
   const plain = rule.context_type[0] === "Default" && Object.keys(rule.policies).length === 0 && others.length === 0;
-  const signer =
-    plain && only?.[0] === "External" && only[1] === WEBAUTHN_VERIFIER ? { verifier: only[1], keyData: only[2] } : undefined;
+  const signer = plain && only?.[0] === "External" && only[1] === WEBAUTHN_VERIFIER ? { verifier: only[1], keyData: only[2] } : undefined;
   signers.set(address, { signer, readAt: Date.now() });
   return signer;
 }

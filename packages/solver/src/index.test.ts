@@ -196,7 +196,13 @@ describe("withoutMoney", () => {
     const ab = owes("A", "B", 100n);
     const ba = owes("B", "A", 100n);
     // A proposal that clears part of each debt.
-    const partial = { ...propose([ab, ba])[0]!, clearings: [{ id: ab.id, amount: 60n }, { id: ba.id, amount: 20n }] };
+    const partial = {
+      ...propose([ab, ba])[0]!,
+      clearings: [
+        { id: ab.id, amount: 60n },
+        { id: ba.id, amount: 20n },
+      ],
+    };
 
     const netOnly = withoutMoney(partial, [ab, ba]);
 

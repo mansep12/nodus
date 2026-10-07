@@ -12,9 +12,7 @@ import { deployWorld, log } from "./harness.ts";
 
 const out = process.argv.indexOf("--out");
 const envFile =
-  out === -1
-    ? fileURLToPath(new URL("../../../apps/web/.env.local", import.meta.url))
-    : path.resolve(process.argv[out + 1] ?? "");
+  out === -1 ? fileURLToPath(new URL("../../../apps/web/.env.local", import.meta.url)) : path.resolve(process.argv[out + 1] ?? "");
 
 const world = await deployWorld();
 const values: Record<string, string> = {

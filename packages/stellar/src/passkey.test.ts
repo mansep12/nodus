@@ -79,8 +79,7 @@ function signEntry(entry: xdr.SorobanAuthorizationEntry, privateKey: KeyObject, 
   if (s > CURVE_ORDER / 2n !== Boolean(tampering.highS)) s = CURVE_ORDER - s;
   const signature = Buffer.concat([raw.subarray(0, 32), Buffer.from(s.toString(16).padStart(64, "0"), "hex")]);
 
-  const entryOf = (key: string, value: Buffer) =>
-    new xdr.ScMapEntry({ key: xdr.ScVal.scvSymbol(key), val: xdr.ScVal.scvBytes(value) });
+  const entryOf = (key: string, value: Buffer) => new xdr.ScMapEntry({ key: xdr.ScVal.scvSymbol(key), val: xdr.ScVal.scvBytes(value) });
   const assertion = xdr.ScVal.scvMap([
     entryOf("authenticator_data", authenticatorData),
     entryOf("client_data", clientData),

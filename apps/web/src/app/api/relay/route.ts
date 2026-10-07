@@ -38,10 +38,7 @@ function isSponsored(funcXdr: string): boolean {
         return Address.fromScAddress(func.invokeContract().contractAddress()).toString() === NODUS_CONTRACT;
       case "hostFunctionTypeCreateContractV2": {
         const executable = func.createContractV2().executable();
-        return (
-          executable.switch().name === "contractExecutableWasm" &&
-          executable.wasmHash().toString("hex") === ACCOUNT_WASM_HASH
-        );
+        return executable.switch().name === "contractExecutableWasm" && executable.wasmHash().toString("hex") === ACCOUNT_WASM_HASH;
       }
       default:
         return false;

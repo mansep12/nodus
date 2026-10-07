@@ -68,7 +68,10 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
   return (
     <article className="grid overflow-hidden rounded-3xl border border-hairline bg-card lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)]">
       <div className="relative isolate flex items-center justify-center overflow-hidden border-b border-hairline bg-canvas-soft px-2 py-4 lg:border-b-0 lg:border-r">
-        <Bloom color={settled ? INK.free.bloom : INK.neutral.bloom} className="left-1/2 top-1/2 -z-10 size-[82%] -translate-x-1/2 -translate-y-1/2 opacity-60" />
+        <Bloom
+          color={settled ? INK.free.bloom : INK.neutral.bloom}
+          className="left-1/2 top-1/2 -z-10 size-[82%] -translate-x-1/2 -translate-y-1/2 opacity-60"
+        />
         <Bloom color={settled ? "var(--color-sky)" : INK.debt.bloom} className="left-[18%] top-[62%] -z-10 size-[46%] opacity-50" />
         <div className="hidden w-full justify-center sm:flex">
           <CircleGraph circle={shown} me={me} nameOf={nameOf} />
@@ -77,16 +80,18 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
         <div className="w-full sm:hidden">
           <CircleGraph circle={shown} me={me} nameOf={nameOf} labels={false} />
           <ul className="mt-1 flex flex-col gap-2.5 px-4 pb-2 text-sm">
-            {shown.parties.filter((party) => known(party.address)).map((party) => (
-              <li key={party.address} className="flex items-center gap-3">
-                <Avatar name={nameOf(party.address)} size="sm" tone={party.address === me ? "ink" : "neutral"} />
-                <span className="min-w-0 flex-1 truncate font-medium">
-                  {nameOf(party.address)}
-                  {party.address === me && " (tú)"}
-                </span>
-                {party.address === me && <span className="text-muted tabular-nums">{netInWords(BigInt(party.net), settled)}</span>}
-              </li>
-            ))}
+            {shown.parties
+              .filter((party) => known(party.address))
+              .map((party) => (
+                <li key={party.address} className="flex items-center gap-3">
+                  <Avatar name={nameOf(party.address)} size="sm" tone={party.address === me ? "ink" : "neutral"} />
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {nameOf(party.address)}
+                    {party.address === me && " (tú)"}
+                  </span>
+                  {party.address === me && <span className="text-muted tabular-nums">{netInWords(BigInt(party.net), settled)}</span>}
+                </li>
+              ))}
           </ul>
         </div>
       </div>
@@ -170,7 +175,10 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
             <div className="flex items-center gap-3 text-[13px] text-muted">
               <span className="flex gap-1" aria-hidden>
                 {shown.parties.map((party) => (
-                  <span key={party.address} className={`h-1.5 w-5 rounded-full ${party.signed ? INK.free.background : "bg-hairline-strong"}`} />
+                  <span
+                    key={party.address}
+                    className={`h-1.5 w-5 rounded-full ${party.signed ? INK.free.background : "bg-hairline-strong"}`}
+                  />
                 ))}
               </span>
               <span>
@@ -216,9 +224,7 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger }: Props
             </p>
           )}
 
-          <Problem>
-            {sign.error ?? (status === "failed" && `El intento anterior no se completó: ${shown.proposal?.error}`)}
-          </Problem>
+          <Problem>{sign.error ?? (status === "failed" && `El intento anterior no se completó: ${shown.proposal?.error}`)}</Problem>
         </div>
       </div>
     </article>

@@ -15,7 +15,10 @@ export function Pending({ toAccept, toSign, href }: Props) {
     toAccept > 0 && (toAccept === 1 ? "Tienes una deuda por aceptar." : `Tienes ${toAccept} deudas por aceptar.`),
   ].filter(Boolean);
   return (
-    <p role="status" className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-2xl border border-hairline bg-card px-5 py-3.5 text-[15px]">
+    <p
+      role="status"
+      className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-2xl border border-hairline bg-card px-5 py-3.5 text-[15px]"
+    >
       <span className="flex items-center gap-3">
         <span aria-hidden className="size-2 shrink-0 rounded-full bg-primary" />
         {notices.join(" ")}

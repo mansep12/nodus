@@ -69,8 +69,7 @@ export async function sync(db: Db, { server, contractId, startLedger }: SyncOpti
 }
 
 /** Whether the RPC refused a request because it no longer keeps the ledgers asked for. */
-const isOutOfRange = (error: unknown) =>
-  /within the ledger range/.test(String((error as { message?: unknown } | null)?.message ?? error));
+const isOutOfRange = (error: unknown) => /within the ledger range/.test(String((error as { message?: unknown } | null)?.message ?? error));
 
 /** Event cursors start with a number whose upper 32 bits are the ledger. */
 const ledgerOf = (cursor: string) => Number(BigInt(cursor.split("-")[0]!) >> 32n);
@@ -89,9 +88,7 @@ async function apply(tx: Transaction, contractId: string, event: rpc.Api.EventRe
       contractId,
       type,
       obligationId: id,
-      data: Object.fromEntries(
-        Object.entries(data).map(([key, value]) => [key, typeof value === "bigint" ? value.toString() : value]),
-      ),
+      data: Object.fromEntries(Object.entries(data).map(([key, value]) => [key, typeof value === "bigint" ? value.toString() : value])),
       ledger: event.ledger,
       txHash: event.txHash,
       closedAt,

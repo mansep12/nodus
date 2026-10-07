@@ -9,8 +9,7 @@ import { getKit } from "./kit";
 import type { CircleView, SigningRequest } from "./types";
 
 let client: NodusClient | undefined;
-const nodus = () =>
-  (client ??= new NodusClient({ contractId: NODUS_CONTRACT, rpcUrl: RPC_URL, networkPassphrase: NETWORK_PASSPHRASE }));
+const nodus = () => (client ??= new NodusClient({ contractId: NODUS_CONTRACT, rpcUrl: RPC_URL, networkPassphrase: NETWORK_PASSPHRASE }));
 
 const CONTRACT_ERRORS: Record<number, string> = {
   1: "El monto no es válido.",
@@ -99,10 +98,6 @@ function assertMatches(entry: xdr.SorobanAuthorizationEntry, circle: CircleView,
   const payment = payments.length === 1 && payments[0]!.subInvocations().length === 0 ? contractCall(payments[0]!) : undefined;
   const [from, to, amount] = payment?.args ?? [];
   const paysTheNet =
-    payment?.contract === TOKEN_CONTRACT &&
-    payment.name === "transfer" &&
-    from === address &&
-    to === NODUS_CONTRACT &&
-    amount === -net;
+    payment?.contract === TOKEN_CONTRACT && payment.name === "transfer" && from === address && to === NODUS_CONTRACT && amount === -net;
   if (!paysTheNet) throw mismatch;
 }

@@ -78,9 +78,7 @@ describe("CircleCard", () => {
 
     const signButton = screen.getByRole<HTMLButtonElement>("button", { name: "Firmar con passkey" });
     expect(signButton.disabled).toBe(true);
-    expect(screen.getByRole("alert").textContent).toBe(
-      "Te faltan 6 USDC para pagar tu saldo neto. Puedes compensar sin mover dinero.",
-    );
+    expect(screen.getByRole("alert").textContent).toBe("Te faltan 6 USDC para pagar tu saldo neto. Puedes compensar sin mover dinero.");
 
     fireEvent.click(screen.getByRole("radio", { name: "Sin mover dinero" }));
 
@@ -123,7 +121,10 @@ describe("CircleCard", () => {
   });
 
   test("says why the last attempt failed and lets the parties try again", () => {
-    const retry: CircleView = { ...detected, proposal: { id: "p0", status: "failed", expirationLedger: 0, error: "El plazo para firmar venció." } };
+    const retry: CircleView = {
+      ...detected,
+      proposal: { id: "p0", status: "failed", expirationLedger: 0, error: "El plazo para firmar venció." },
+    };
     show(<CircleCard circle={retry} me={CARRIER} nameOf={nameOf} balance={BigInt(units(50))} />);
 
     expect(screen.getByRole("alert").textContent).toBe("El intento anterior no se completó: El plazo para firmar venció.");

@@ -68,7 +68,14 @@ export function History({ settlements, me, nameOf }: Props) {
         <li key={txHash} className="overflow-hidden rounded-2xl border border-hairline bg-card">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3 px-6 py-5">
             <span aria-hidden className={`grid size-8 shrink-0 place-items-center rounded-full ${INK.free.softBackground}`}>
-              <svg viewBox="0 0 12 12" className={`size-3.5 ${INK.free.stroke}`} fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                viewBox="0 0 12 12"
+                className={`size-3.5 ${INK.free.stroke}`}
+                fill="none"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M2.5 6.3 L5 8.6 L9.5 3.6" />
               </svg>
             </span>

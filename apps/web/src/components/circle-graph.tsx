@@ -54,7 +54,10 @@ export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
   const anchor = mine === -1 ? { index: 0, angle: -Math.PI / 2 } : { index: mine, angle: Math.PI / 2 };
   const angleOf = new Map(parties.map((party, index) => [party.address, anchor.angle + ((index - anchor.index) * 2 * Math.PI) / count]));
 
-  const largestOfMine = [...owedByMe.values(), ...owedToMe.values()].reduce((max, amount) => (BigInt(amount) > max ? BigInt(amount) : max), 0n);
+  const largestOfMine = [...owedByMe.values(), ...owedToMe.values()].reduce(
+    (max, amount) => (BigInt(amount) > max ? BigInt(amount) : max),
+    0n,
+  );
 
   const cords = edges.flatMap((edge) => {
     const [from, to] = [angleOf.get(edge.from), angleOf.get(edge.to)];
@@ -145,7 +148,13 @@ export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
           owedByMe.has(party.address) && `${settled ? "le debías" : "le debes"} ${formatAmount(owedByMe.get(party.address)!)}`,
         ].filter(Boolean);
         const caption =
-          kind === "me" ? netInWords(BigInt(party.net), settled) : kind === "known" ? debts.join(" · ") : done ? "ya firmó" : "falta su firma";
+          kind === "me"
+            ? netInWords(BigInt(party.net), settled)
+            : kind === "known"
+              ? debts.join(" · ")
+              : done
+                ? "ya firmó"
+                : "falta su firma";
 
         return (
           <g
@@ -165,7 +174,11 @@ export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
                 }`}
               />
               {kind !== "unknown" && (
-                <text y={kind === "me" ? 5.5 : 4.5} textAnchor="middle" className={`font-semibold ${kind === "me" ? "fill-white text-[15px]" : "fill-ink text-[12.5px]"}`}>
+                <text
+                  y={kind === "me" ? 5.5 : 4.5}
+                  textAnchor="middle"
+                  className={`font-semibold ${kind === "me" ? "fill-white text-[15px]" : "fill-ink text-[12.5px]"}`}
+                >
                   {initials(name)}
                 </text>
               )}
@@ -173,7 +186,11 @@ export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
                 // The mark of a signature: a tick, on the node's shoulder or filling a small one.
                 <g transform={kind === "unknown" ? undefined : `translate(${radius * 0.72} ${-radius * 0.72})`}>
                   <motion.g initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 380, damping: 16 }}>
-                    <circle r={kind === "unknown" ? radius - 2.5 : 9.5} className="fill-free stroke-card" strokeWidth={kind === "unknown" ? 0 : 2} />
+                    <circle
+                      r={kind === "unknown" ? radius - 2.5 : 9.5}
+                      className="fill-free stroke-card"
+                      strokeWidth={kind === "unknown" ? 0 : 2}
+                    />
                     <path
                       d={kind === "unknown" ? "M -3 0.3 L -0.8 2.4 L 3 -2.2" : "M -4 0 L -1 3 L 4 -3"}
                       fill="none"
@@ -198,7 +215,13 @@ export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
               </g>
             )}
             {labels && kind === "unknown" && active && (
-              <text x={labelX} y={labelY + (side === "above" ? 12 : side === "below" ? -2 : 7)} textAnchor={anchorText} className="fill-muted text-[12px]" pointerEvents="none">
+              <text
+                x={labelX}
+                y={labelY + (side === "above" ? 12 : side === "below" ? -2 : 7)}
+                textAnchor={anchorText}
+                className="fill-muted text-[12px]"
+                pointerEvents="none"
+              >
                 Otro negocio · {caption}
               </text>
             )}

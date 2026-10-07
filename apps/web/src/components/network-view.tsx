@@ -95,7 +95,14 @@ export function NetworkView() {
       <RegisterDebt me={me} businesses={state.businesses} />
 
       <section className="grid items-start gap-5 lg:grid-cols-2">
-        <DebtList title="Te deben" empty={SIDES.credit.empty} {...linked("credit")} obligations={books.credit.obligations} me={me} nameOf={nameOf} />
+        <DebtList
+          title="Te deben"
+          empty={SIDES.credit.empty}
+          {...linked("credit")}
+          obligations={books.credit.obligations}
+          me={me}
+          nameOf={nameOf}
+        />
         <DebtList title="Debes" empty={SIDES.debt.empty} {...linked("debt")} obligations={books.debt.obligations} me={me} nameOf={nameOf} />
       </section>
     </div>
@@ -240,7 +247,11 @@ function NetPosition({ credit, debt }: { credit: bigint; debt: bigint }) {
             Te deben <span className="font-medium text-ink tabular-nums">{formatAmount(credit)}</span>
           </span>
           <span>
-            {net === 0n ? "Lo que te deben y lo que debes se igualan." : net > 0n ? "Te deben más de lo que debes." : "Debes más de lo que te deben."}
+            {net === 0n
+              ? "Lo que te deben y lo que debes se igualan."
+              : net > 0n
+                ? "Te deben más de lo que debes."
+                : "Debes más de lo que te deben."}
           </span>
           <span>
             Debes <span className="font-medium text-ink tabular-nums">{formatAmount(debt)}</span>

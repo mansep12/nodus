@@ -1,16 +1,5 @@
 import { sql } from "drizzle-orm";
-import {
-  bigint,
-  integer,
-  jsonb,
-  numeric,
-  pgEnum,
-  pgTable,
-  primaryKey,
-  text,
-  timestamp,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { bigint, integer, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 // Token amounts are i128 on chain, wider than any Postgres integer type.
 const amount = (name: string) => numeric(name, { precision: 39, scale: 0, mode: "bigint" });
