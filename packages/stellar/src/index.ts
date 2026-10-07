@@ -2,11 +2,14 @@
 import { Networks } from "@stellar/stellar-sdk";
 
 export { addressCredentials, defaultRuleIds, entryAddress } from "./auth.ts";
-export { isSignedByPasskey, type PasskeySigner } from "./passkey.ts";
+export { isSignedByPasskey, signedRuleId, type PasskeySigner } from "./passkey.ts";
+export { rawPublicKey, verifyAssertion, type AssertionExpectations, type AssertionJSON } from "./webauthn.ts";
 
 export const RPC_URL = "https://soroban-testnet.stellar.org";
 export const NETWORK_PASSPHRASE = Networks.TESTNET;
 export const EXPLORER_URL = "https://stellar.expert/explorer/testnet";
+/** Horizon keeps the whole history, for transactions the RPC has already forgotten. */
+export const HORIZON_URL = "https://horizon-testnet.stellar.org";
 
 // OpenZeppelin smart account contracts deployed on testnet (smart-account-kit 0.8).
 export const ACCOUNT_WASM_HASH = "1b5f4534a76322da2ad7c745f6900857a6802b0ca79850c35a03561df997785a";

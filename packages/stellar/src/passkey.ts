@@ -27,8 +27,24 @@ function field(map: xdr.ScVal, name: string): xdr.ScVal | undefined {
 const bytes = (value: xdr.ScVal | undefined) => (value?.switch().name === "scvBytes" ? value.bytes() : undefined);
 
 /**
+ * The context rule a signed entry claims to be signed under, when every
+ * invocation in it claims the same one; undefined otherwise.
+ */
+export function signedRuleId(entry: xdr.SorobanAuthorizationEntry): number | undefined {
+  try {
+    const ruleIds = field(addressCredentials(entry).signature(), "context_rule_ids");
+    if (ruleIds?.switch().name !== "scvVec") return undefined;
+    const ids = (ruleIds.vec() ?? []).map((id) => (id.switch().name === "scvU32" ? id.u32() : -1));
+    if (ids.length !== defaultRuleIds(entry).length || ids.some((id) => id < 0 || id !== ids[0])) return undefined;
+    return ids[0];
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Whether `entry` carries a signature of `signer` that its smart account will
- * accept: a WebAuthn assertion, under the account's default rule, over the
+ * accept: a WebAuthn assertion, under the account's rule `ruleId`, over the
  * digest of exactly this entry. It repeats off chain what the account and its
  * WebAuthn verifier check on chain, to tell a forged signature apart before
  * sending anything.
@@ -37,6 +53,7 @@ export async function isSignedByPasskey(
   entry: xdr.SorobanAuthorizationEntry,
   signer: PasskeySigner,
   networkPassphrase: string,
+  ruleId = 0,
 ): Promise<boolean> {
   try {
     const credentials = addressCredentials(entry);
@@ -45,9 +62,8 @@ export async function isSignedByPasskey(
     const signers = field(payload, "signers");
     if (ruleIds?.switch().name !== "scvVec" || signers?.switch().name !== "scvMap") return false;
 
-    // Every invocation in the entry must be signed under the default rule.
-    const ids = (ruleIds.vec() ?? []).map((id) => (id.switch().name === "scvU32" ? id.u32() : -1));
-    if (ids.length !== defaultRuleIds(entry).length || ids.some((id) => id !== 0)) return false;
+    // Every invocation in the entry must be signed under the same rule.
+    if (signedRuleId(entry) !== ruleId) return false;
 
     const signerKey = xdr.ScVal.scvVec([
       xdr.ScVal.scvSymbol("External"),
