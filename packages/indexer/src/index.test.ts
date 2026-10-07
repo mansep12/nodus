@@ -62,7 +62,7 @@ describe("sync", () => {
   test("follows an obligation from registration to settlement", async () => {
     const { server } = fakeRpc([registered(0n, 100n), ["accepted", 0n, {}], ["cleared", 0n, { amount: 30n, remaining: 70n }]]);
 
-    expect(await sync(db, { server, contractId: CONTRACT })).toBe(3);
+    expect((await sync(db, { server, contractId: CONTRACT })).applied).toBe(3);
 
     expect(await db.select().from(obligations)).toEqual([
       {
@@ -72,7 +72,10 @@ describe("sync", () => {
         debtor: A,
         amount: 70n,
         originalAmount: 100n,
+        paid: 0n,
         status: "accepted",
+        reference: null,
+        dueAt: null,
         registeredAt: new Date(Date.UTC(2026, 9, 3, 12, 0, 0)),
       },
     ]);
@@ -92,7 +95,7 @@ describe("sync", () => {
         ),
       ],
     ]);
-    expect(await sync(db, { server: later.server, contractId: CONTRACT })).toBe(2);
+    expect((await sync(db, { server: later.server, contractId: CONTRACT })).applied).toBe(2);
 
     const [obligation] = await db.select().from(obligations);
     expect(obligation).toMatchObject({ amount: 0n, status: "settled" });
@@ -112,7 +115,7 @@ describe("sync", () => {
     expect(requests[0]).toMatchObject({ startLedger: 70 });
 
     requests.length = 0;
-    expect(await sync(db, { server, contractId: CONTRACT })).toBe(0);
+    expect((await sync(db, { server, contractId: CONTRACT })).applied).toBe(0);
     const [stored] = await db.select().from(cursors);
     expect(requests).toEqual([expect.objectContaining({ cursor: stored!.cursor })]);
     expect(await db.select().from(obligations)).toHaveLength(2);
@@ -129,7 +132,7 @@ describe("sync", () => {
   test("starts from the oldest ledger kept when the given one is gone", async () => {
     const { server, requests } = fakeRpc([registered(0n, 100n)]);
 
-    expect(await sync(db, { server, contractId: CONTRACT, startLedger: 10 })).toBe(1);
+    expect((await sync(db, { server, contractId: CONTRACT, startLedger: 10 })).applied).toBe(1);
 
     expect(requests[0]).toMatchObject({ startLedger: 70 });
   });
@@ -139,7 +142,7 @@ describe("sync", () => {
     const longAgo = `${(10n << 32n).toString().padStart(19, "0")}-0000000000`;
     await db.insert(cursors).values({ contractId: CONTRACT, cursor: longAgo });
 
-    expect(await sync(db, { server, contractId: CONTRACT })).toBe(1);
+    expect((await sync(db, { server, contractId: CONTRACT })).applied).toBe(1);
 
     expect(requests.slice(0, 2)).toEqual([expect.objectContaining({ cursor: longAgo }), expect.objectContaining({ startLedger: 70 })]);
     const [stored] = await db.select().from(cursors);
@@ -151,7 +154,7 @@ describe("sync", () => {
     await sync(db, { server, contractId: CONTRACT });
 
     await db.delete(cursors);
-    expect(await sync(db, { server, contractId: CONTRACT })).toBe(0);
+    expect((await sync(db, { server, contractId: CONTRACT })).applied).toBe(0);
 
     expect(await db.select().from(events)).toHaveLength(3);
     const [obligation] = await db.select().from(obligations);
@@ -162,7 +165,7 @@ describe("sync", () => {
     const many = Array.from({ length: 250 }, (_, index) => registered(BigInt(index), 10n));
     const { server, requests } = fakeRpc(many);
 
-    expect(await sync(db, { server, contractId: CONTRACT })).toBe(250);
+    expect((await sync(db, { server, contractId: CONTRACT })).applied).toBe(250);
 
     // A full page, the rest, and an empty one that confirms there is no more.
     expect(requests.length).toBe(3);
