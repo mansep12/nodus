@@ -2,7 +2,7 @@
 
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, MockAuth, MockAuthInvoke},
+    testutils::{storage::Persistent as _, Address as _, Ledger, MockAuth, MockAuthInvoke},
     token::{StellarAssetClient, TokenClient},
     vec, Env, IntoVal,
 };
@@ -30,7 +30,7 @@ fn setup<'a>() -> Setup<'a> {
 
 /// Registers and accepts an obligation, returning its id.
 fn owe(s: &Setup, debtor: &Address, creditor: &Address, amount: i128) -> u64 {
-    let id = s.nodus.register(creditor, debtor, &amount);
+    let id = s.nodus.register(creditor, debtor, &amount, &None, &None);
     s.nodus.accept(&id);
     id
 }
@@ -193,7 +193,7 @@ fn rejects_invalid_settlements() {
     let s = setup();
     let (a, b) = (Address::generate(&s.env), Address::generate(&s.env));
     let accepted = owe(&s, &a, &b, 100);
-    let pending = s.nodus.register(&a, &b, &40);
+    let pending = s.nodus.register(&a, &b, &40, &None, &None);
 
     let settle = |clearings: Vec<Clearing>| s.nodus.try_settle(&clearings);
 
@@ -228,12 +228,16 @@ fn register_accept_and_cancel() {
     let (a, b) = (Address::generate(&s.env), Address::generate(&s.env));
 
     assert_eq!(
-        s.nodus.try_register(&b, &a, &0),
+        s.nodus.try_register(&b, &a, &0, &None, &None),
         Err(Ok(Error::InvalidAmount))
     );
-    assert_eq!(s.nodus.try_register(&b, &b, &10), Err(Ok(Error::SameParty)));
+    assert_eq!(
+        s.nodus.try_register(&b, &b, &10, &None, &None),
+        Err(Ok(Error::SameParty))
+    );
 
-    let id = s.nodus.register(&b, &a, &10);
+    let reference = BytesN::from_array(&s.env, &[7u8; 32]);
+    let id = s.nodus.register(&b, &a, &10, &Some(reference.clone()), &Some(1_800_000_000));
     assert_eq!(
         s.nodus.obligation(&id),
         Obligation {
@@ -241,12 +245,81 @@ fn register_accept_and_cancel() {
             creditor: b.clone(),
             amount: 10,
             accepted: false,
+            reference: Some(reference),
+            due: Some(1_800_000_000),
         }
     );
+    assert_eq!(s.nodus.count(), 1);
     s.nodus.accept(&id);
     assert!(s.nodus.obligation(&id).accepted);
     assert_eq!(s.nodus.try_accept(&id), Err(Ok(Error::AlreadyAccepted)));
 
     s.nodus.cancel(&id);
     assert_eq!(s.nodus.try_obligation(&id), Err(Ok(Error::NotFound)));
+}
+
+#[test]
+fn the_debtor_can_reject_what_it_has_not_accepted() {
+    let s = setup();
+    let (a, b) = (Address::generate(&s.env), Address::generate(&s.env));
+    let pending = s.nodus.register(&b, &a, &10, &None, &None);
+    let accepted = owe(&s, &a, &b, 20);
+
+    s.nodus.reject(&pending);
+    // Rejecting is the debtor's call, not the creditor's.
+    assert_eq!(s.env.auths()[0].0, a);
+    assert_eq!(s.nodus.try_obligation(&pending), Err(Ok(Error::NotFound)));
+
+    // Once accepted, only the creditor can make it go away.
+    assert_eq!(s.nodus.try_reject(&accepted), Err(Ok(Error::AlreadyAccepted)));
+    assert_eq!(s.nodus.obligation(&accepted).amount, 20);
+    assert_eq!(s.nodus.try_reject(&99), Err(Ok(Error::NotFound)));
+}
+
+#[test]
+fn the_debtor_pays_what_is_left_directly() {
+    let s = setup();
+    let (a, b) = (Address::generate(&s.env), Address::generate(&s.env));
+    let id = owe(&s, &a, &b, 100);
+    let pending = s.nodus.register(&b, &a, &5, &None, &None);
+    s.mint.mint(&a, &100);
+
+    assert_eq!(s.nodus.try_pay(&pending, &5), Err(Ok(Error::NotAccepted)));
+    assert_eq!(s.nodus.try_pay(&id, &0), Err(Ok(Error::InvalidAmount)));
+    assert_eq!(s.nodus.try_pay(&id, &101), Err(Ok(Error::ExceedsObligation)));
+    assert_eq!(s.nodus.try_pay(&99, &1), Err(Ok(Error::NotFound)));
+
+    s.nodus.pay(&id, &30);
+    // The payment is authorized by the debtor, with the transfer underneath.
+    let (address, invocation) = s.env.auths()[0].clone();
+    assert_eq!(address, a);
+    assert_eq!(invocation.sub_invocations.len(), 1);
+    assert_eq!(s.nodus.obligation(&id).amount, 70);
+    assert_eq!(s.token.balance(&a), 70);
+    assert_eq!(s.token.balance(&b), 30);
+
+    s.nodus.pay(&id, &70);
+    assert_eq!(s.nodus.try_obligation(&id), Err(Ok(Error::NotFound)));
+    assert_eq!(s.token.balance(&a), 0);
+    assert_eq!(s.token.balance(&b), 100);
+    assert_eq!(s.token.balance(&s.nodus.address), 0);
+}
+
+#[test]
+fn keep_alive_extends_the_life_of_obligations() {
+    let s = setup();
+    let (a, b) = (Address::generate(&s.env), Address::generate(&s.env));
+    let id = owe(&s, &a, &b, 10);
+    let key = DataKey::Obligation(id);
+    let ttl = || s.env.as_contract(&s.nodus.address, || s.env.storage().persistent().get_ttl(&key));
+
+    // Nearly a year goes by: the obligation is close to its expiry.
+    s.env.ledger().with_mut(|ledger| ledger.sequence_number += TTL_EXTEND_TO - 100);
+    let before = ttl();
+    assert!(before < TTL_THRESHOLD);
+
+    // Unknown ids are ignored.
+    s.nodus.keep_alive(&vec![&s.env, id, 99]);
+    assert_eq!(ttl(), TTL_EXTEND_TO);
+    assert!(ttl() > before);
 }

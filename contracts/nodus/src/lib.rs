@@ -4,11 +4,12 @@
 //! a set of accepted obligations, requires the authorization of every party
 //! involved, cancels the obligations and moves only each party's net balance
 //! in the settlement token. Everything happens in one transaction or not at all.
+//! What a settlement leaves owed can be paid directly with `pay`.
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractevent, contractimpl, contracttype, token, Address, Env, Map,
-    Vec,
+    contract, contracterror, contractevent, contractimpl, contracttype, token, Address, BytesN, Env,
+    Map, Vec,
 };
 
 const DAY_IN_LEDGERS: u32 = 17_280;
@@ -31,8 +32,12 @@ pub struct Obligation {
     pub creditor: Address,
     /// Outstanding amount, in units of the settlement token.
     pub amount: i128,
-    /// Only obligations accepted by the debtor can be settled.
+    /// Only obligations accepted by the debtor can be settled or paid.
     pub accepted: bool,
+    /// Hash of the document behind the debt (an invoice, a contract), if any.
+    pub reference: Option<BytesN<32>>,
+    /// When the debt falls due, as a Unix timestamp, if agreed.
+    pub due: Option<u64>,
 }
 
 /// How much of obligation `id` a settlement cancels.
@@ -65,6 +70,8 @@ pub struct Registered {
     pub creditor: Address,
     pub debtor: Address,
     pub amount: i128,
+    pub reference: Option<BytesN<32>>,
+    pub due: Option<u64>,
 }
 
 #[contractevent]
@@ -73,10 +80,26 @@ pub struct Accepted {
     pub id: u64,
 }
 
+/// The debtor refused an obligation before accepting it.
+#[contractevent]
+pub struct Rejected {
+    #[topic]
+    pub id: u64,
+}
+
 #[contractevent]
 pub struct Cancelled {
     #[topic]
     pub id: u64,
+}
+
+/// Part of an obligation was paid directly by the debtor.
+#[contractevent]
+pub struct Paid {
+    #[topic]
+    pub id: u64,
+    pub amount: i128,
+    pub remaining: i128,
 }
 
 /// Part of an obligation was cancelled by a settlement.
@@ -101,17 +124,20 @@ pub struct Nodus;
 
 #[contractimpl]
 impl Nodus {
-    /// `token` is the asset in which net balances are paid.
+    /// `token` is the asset in which net balances and payments are made.
     pub fn __constructor(env: Env, token: Address) {
         env.storage().instance().set(&DataKey::Token, &token);
     }
 
-    /// The creditor records that `debtor` owes them `amount`.
+    /// The creditor records that `debtor` owes them `amount`, optionally
+    /// pointing at the document behind it and the date it falls due.
     pub fn register(
         env: Env,
         creditor: Address,
         debtor: Address,
         amount: i128,
+        reference: Option<BytesN<32>>,
+        due: Option<u64>,
     ) -> Result<u64, Error> {
         creditor.require_auth();
         if amount <= 0 {
@@ -131,6 +157,8 @@ impl Nodus {
                 creditor: creditor.clone(),
                 amount,
                 accepted: false,
+                reference: reference.clone(),
+                due,
             },
         );
         extend_instance(&env);
@@ -140,6 +168,8 @@ impl Nodus {
             creditor,
             debtor,
             amount,
+            reference,
+            due,
         }
         .publish(&env);
         Ok(id)
@@ -160,6 +190,20 @@ impl Nodus {
         Ok(())
     }
 
+    /// The debtor refuses an obligation it has not accepted, which removes it.
+    pub fn reject(env: Env, id: u64) -> Result<(), Error> {
+        let obligation = read_obligation(&env, id)?;
+        obligation.debtor.require_auth();
+        if obligation.accepted {
+            return Err(Error::AlreadyAccepted);
+        }
+        env.storage().persistent().remove(&DataKey::Obligation(id));
+        extend_instance(&env);
+
+        Rejected { id }.publish(&env);
+        Ok(())
+    }
+
     /// The creditor withdraws an obligation (forgiven, or paid elsewhere).
     pub fn cancel(env: Env, id: u64) -> Result<(), Error> {
         let obligation = read_obligation(&env, id)?;
@@ -168,6 +212,43 @@ impl Nodus {
         extend_instance(&env);
 
         Cancelled { id }.publish(&env);
+        Ok(())
+    }
+
+    /// The debtor pays `amount` of an accepted obligation to the creditor in
+    /// the settlement token. What a settlement leaves owed gets paid this way.
+    pub fn pay(env: Env, id: u64, amount: i128) -> Result<(), Error> {
+        let mut obligation = read_obligation(&env, id)?;
+        obligation.debtor.require_auth();
+        if !obligation.accepted {
+            return Err(Error::NotAccepted);
+        }
+        if amount <= 0 {
+            return Err(Error::InvalidAmount);
+        }
+        if amount > obligation.amount {
+            return Err(Error::ExceedsObligation);
+        }
+
+        token::TokenClient::new(&env, &read_token(&env)).transfer(
+            &obligation.debtor,
+            &obligation.creditor,
+            &amount,
+        );
+        obligation.amount -= amount;
+        if obligation.amount == 0 {
+            env.storage().persistent().remove(&DataKey::Obligation(id));
+        } else {
+            write_obligation(&env, id, &obligation);
+        }
+        extend_instance(&env);
+
+        Paid {
+            id,
+            amount,
+            remaining: obligation.amount,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -261,8 +342,27 @@ impl Nodus {
         Ok(moved)
     }
 
+    /// Keeps the given obligations from expiring. Anyone may call it; it does
+    /// nothing for obligations that no longer exist.
+    pub fn keep_alive(env: Env, ids: Vec<u64>) {
+        for id in ids.iter() {
+            let key = DataKey::Obligation(id);
+            if env.storage().persistent().has(&key) {
+                env.storage()
+                    .persistent()
+                    .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND_TO);
+            }
+        }
+        extend_instance(&env);
+    }
+
     pub fn obligation(env: Env, id: u64) -> Result<Obligation, Error> {
         read_obligation(&env, id)
+    }
+
+    /// How many obligations have been registered: ids run from 0 to this, exclusive.
+    pub fn count(env: Env) -> u64 {
+        env.storage().instance().get(&DataKey::NextId).unwrap_or(0)
     }
 
     pub fn token(env: Env) -> Address {
