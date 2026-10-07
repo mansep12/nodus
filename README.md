@@ -43,20 +43,24 @@ En los dos casos nadie queda mejor ni peor que antes: lo que cada negocio deja d
 
 ```
 contracts/nodus          Contrato Soroban (Rust): registro de deudas y liquidación atómica
+contracts/allowlist      Policy para smart accounts: limita una llave a algunas funciones de Nodus
 packages/contract-client Cliente TypeScript generado desde el contrato
 packages/stellar         Configuración de red, relayer y verificación de firmas de passkey
 packages/solver          Buscador de círculos
 packages/db              Esquema y migraciones de Postgres
 packages/indexer         Copia los eventos del contrato a Postgres
-packages/e2e             Pruebas de punta a punta contra testnet
-apps/web                 Aplicación Next.js
+packages/api             Tipos de lo que devuelve la API
+packages/e2e             Despliegue y pruebas de punta a punta contra testnet
+apps/web                 Aplicación Next.js y su API
 ```
 
-- **Contrato.** `register` (acreedor), `accept` (deudor), `cancel` y `settle`. `settle` recibe las deudas a cancelar, calcula el neto de cada parte, exige la autorización de todas y mueve los netos en el token de liquidación.
-- **Cuentas.** Cada negocio es una smart account de OpenZeppelin controlada por una passkey. No hay frases semilla ni extensiones.
+- **Contrato.** El acreedor registra (`register`) y puede anular (`cancel`); el deudor acepta o rechaza (`accept`, `reject`) y puede pagar directo (`pay`). `settle` recibe las deudas a cancelar, calcula el neto de cada parte, exige la autorización de todas y mueve los netos en el token de liquidación. `keep_alive` evita que las deudas abiertas expiren en la red.
+- **Cuentas.** Cada negocio es una smart account de OpenZeppelin controlada por una passkey. No hay frases semilla ni extensiones. Se puede agregar una passkey de respaldo, que puede todo, y la de un contador, que registra y acepta deudas pero no liquida ni mueve dinero.
 - **Comisiones.** Todas las transacciones se envían por OpenZeppelin Relayer (Channels), así que ningún negocio necesita XLM.
 - **Firmas.** Cada negocio firma su entrada de autorización por separado. El servidor las guarda y las reenvía, pero no puede alterarlas: el navegador comprueba que lo que firma es exactamente el círculo en pantalla, y el servidor verifica cada firma antes de aceptarla.
-- **Buscador.** Corre fuera de cadena y no es de confianza: el contrato valida todo de nuevo.
+- **Buscador.** Corre fuera de cadena, dentro de la aplicación, cada vez que cambian las deudas. No es de confianza: el contrato valida todo de nuevo.
+
+El detalle está en [docs/arquitectura.md](docs/arquitectura.md) y el modelo de confianza en [docs/seguridad.md](docs/seguridad.md).
 
 ## Cómo correrlo
 
@@ -64,32 +68,36 @@ Requisitos: [Bun](https://bun.sh), Rust con el target `wasm32v1-none` y [Stellar
 
 ```bash
 bun install
-bun run contract:build
+bun run contract:build                           # compila el contrato y la policy
 cp packages/e2e/.env.example packages/e2e/.env   # y completar la clave del relayer
-bun run deploy:testnet                           # despliega token de prueba y contrato
+bun run deploy:testnet                           # despliega token de prueba, contrato y policy
 bun run dev                                      # http://localhost:3000
 ```
 
-Sin `DATABASE_URL` la aplicación usa un Postgres embebido; con ella se conecta a cualquier Postgres (`bun run db:migrate` aplica el esquema).
+`deploy:testnet` escribe en `apps/web/.env.local` las direcciones y las llaves que la aplicación necesita. Sin `DATABASE_URL` la aplicación usa un Postgres embebido; con ella se conecta a cualquier Postgres (`bun run db:migrate` aplica el esquema). Para publicarla en Vercel con Supabase, o con el `Dockerfile`, ver [despliegue](docs/arquitectura.md#despliegue).
 
 ### Pruebas
 
 ```bash
-bun run contract:test    # contrato
+bun run contract:test    # contratos
 bun run test             # buscador, indexador, firmas e interfaz
 bun run e2e:settle 3 10  # mide una liquidación de 3 y de 10 negocios en testnet
 bun run e2e:netting      # deudas, indexador, buscador y liquidación en testnet
 ```
 
-`bun run deploy:sandbox && bun run dev:sandbox` levanta una segunda instancia en el puerto 3001 con llaves de prueba en vez de passkeys, y `bun run e2e:web http://localhost:3001` la recorre completa.
+Con `--relayer`, `e2e:settle` y `e2e:netting` envían la liquidación por el relayer. La CI corre además `format:check`, `lint`, `typecheck` y el build de la aplicación.
+
+`bun run deploy:sandbox && bun run dev:sandbox` levanta una segunda instancia en el puerto 3001 con llaves de prueba en vez de passkeys, y `bun run e2e:web http://localhost:3001` la recorre completa. `bun run demo:neighbors <dirección>` le da a tu negocio dos vecinos que maneja un script, para cerrar un círculo sin jugar todos los papeles.
 
 ## Límites conocidos
 
 - Las deudas las declaran las partes; no hay conexión con facturas del SII.
 - La identidad de los negocios no se verifica: el nombre es solo un rótulo.
 - La compensación en cadena no tiene por sí sola efecto legal ni contable.
-- Quién le debe a quién y cuánto queda público.
+- Quién le debe a quién y cuánto queda público. La aplicación no nombra a los terceros de un círculo, pero sus deudas están en la cadena y el servidor las ve todas.
 - El token de liquidación es un activo de prueba, no USDC real.
+- La aplicación propone círculos de hasta 8 negocios; el de 20 se armó con un script.
+- Corre solo en testnet y nada está auditado. Lo que habría que revisar antes de mainnet está en [docs/seguridad.md](docs/seguridad.md).
 
 ## Licencia
 
