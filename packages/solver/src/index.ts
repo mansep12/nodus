@@ -52,6 +52,15 @@ export interface Options {
   /** Largest circle to look for. Every party must sign, so short circles close more easily. */
   maxParties?: number;
   mode?: Mode;
+  /** How long the search may take, in milliseconds. Past it, the circles found so far are what gets proposed. */
+  budgetMs?: number;
+}
+
+/** What `search` found, and whether it looked at every circle. */
+export interface Search {
+  proposals: Proposal[];
+  /** True when the search stopped before looking at every circle: by time, or by their sheer number. */
+  cutShort: boolean;
 }
 
 /** The effect of `clearings` on each party involved, in order of first appearance. */
@@ -87,31 +96,41 @@ export function effects(clearings: Clearing[], obligations: Iterable<Obligation>
  * Only pass obligations that can be settled: accepted by the debtor.
  */
 export function propose(obligations: Obligation[], options: Options = {}): Proposal[] {
-  const { maxParties = 6, mode = "full" } = options;
+  return search(obligations, options).proposals;
+}
+
+/** Like `propose`, and says whether every circle was looked at. */
+export function search(obligations: Obligation[], options: Options = {}): Search {
+  const { maxParties = 6, mode = "full", budgetMs = Infinity } = options;
+  const deadline = Date.now() + budgetMs;
   let outstanding = obligations
     .filter((o) => o.amount > 0n && o.debtor !== o.creditor)
     .map((o) => ({ ...o }))
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const proposals: Proposal[] = [];
+  let cutShort = false;
 
   if (mode === "full") {
     // A circle settled in full uses its debts up, so one search is enough:
     // take the circles from best to worst, skipping any that shares a debt
     // with one already taken.
     const taken = new Set<bigint>();
-    for (const links of ranked(outstanding, maxParties, mode)) {
+    const found = ranked(outstanding, maxParties, mode, deadline);
+    for (const links of found.circles) {
       if (links.some((link) => link.some((obligation) => taken.has(obligation.id)))) continue;
       for (const obligation of links.flat()) taken.add(obligation.id);
       proposals.push(clear(links, mode, outstanding));
     }
-    return proposals;
+    return { proposals, cutShort: found.cutShort };
   }
 
   // Cancelling only the common amount leaves the rest of each debt free to
   // be netted in another circle, so the search starts over after each one.
   for (;;) {
-    const [best] = ranked(outstanding, maxParties, mode);
-    if (!best) return proposals;
+    const found = ranked(outstanding, maxParties, mode, deadline);
+    cutShort ||= found.cutShort;
+    const [best] = found.circles;
+    if (!best) return { proposals, cutShort };
     const proposal = clear(best, mode, outstanding);
     proposals.push(proposal);
 
@@ -126,12 +145,15 @@ type Links = Obligation[][];
 
 /** A dense network has more circles than is worth looking at; the search stops here. */
 const MAX_CIRCLES = 50_000;
+/** How many circles to look at between glances at the clock. */
+const CLOCK_EVERY = 256;
 
 /**
  * The circles among `obligations`, from the one that frees the most liquidity
- * to the one that frees the least, with fewer parties first on a tie.
+ * to the one that frees the least, with fewer parties first on a tie. Stops
+ * at `deadline`, or at MAX_CIRCLES, and says so.
  */
-function ranked(obligations: Obligation[], maxParties: number, mode: Mode): Links[] {
+function ranked(obligations: Obligation[], maxParties: number, mode: Mode, deadline: number): { circles: Links[]; cutShort: boolean } {
   // All the obligations from one party to another act as a single edge.
   const edges = new Map<string, Map<string, Obligation[]>>();
   for (const obligation of obligations) {
@@ -143,14 +165,21 @@ function ranked(obligations: Obligation[], maxParties: number, mode: Mode): Link
   }
 
   const found: Array<{ links: Links; freed: bigint }> = [];
+  let cutShort = false;
   for (const circle of circles(edges, maxParties)) {
     const links = circle.map((debtor, i) => edges.get(debtor)!.get(circle[(i + 1) % circle.length]!)!);
     found.push({ links, freed: freedBy(links.map(total), mode) });
-    if (found.length === MAX_CIRCLES) break;
+    if (found.length === MAX_CIRCLES || (found.length % CLOCK_EVERY === 0 && Date.now() > deadline)) {
+      cutShort = true;
+      break;
+    }
   }
-  return found
-    .sort((a, b) => (a.freed > b.freed ? -1 : a.freed < b.freed ? 1 : a.links.length - b.links.length))
-    .map((circle) => circle.links);
+  return {
+    circles: found
+      .sort((a, b) => (a.freed > b.freed ? -1 : a.freed < b.freed ? 1 : a.links.length - b.links.length))
+      .map((circle) => circle.links),
+    cutShort,
+  };
 }
 
 const total = (link: Obligation[]) => link.reduce((sum, obligation) => sum + obligation.amount, 0n);
