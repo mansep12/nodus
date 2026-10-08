@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "dev:sandbox": "bash -c 'set -a; . ./.env.sandbox; set +a; NEXT_PUBLIC_SOFTWARE_PASSKEYS=1 NODUS_DATA_DIR=.data-sandbox NEXT_DIST_DIR=.next-sandbox exec next dev -p ${PORT:-3001}'",
     "test": "bun test"
   },
