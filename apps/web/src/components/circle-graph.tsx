@@ -6,7 +6,7 @@ import { clip, formatAmount, initials } from "@/lib/format";
 import { EASE, UNTYING } from "@/lib/motion";
 import { INK } from "@/lib/tones";
 import type { CircleView } from "@/lib/types";
-import { useDraw } from "./cord";
+import { Arrowhead, useDraw } from "./cord";
 import { KNOT, KNOT_STRAND } from "./ui";
 
 // Wider than tall: names are written beside the nodes at the sides.
@@ -347,21 +347,11 @@ interface StretchProps {
 /** A debt: the stretch of ring from who owes it to whom, with an arrowhead that says which way. */
 function Stretch({ path, length, width, tone, head, drawn, delay, dimmed }: StretchProps) {
   const draw = useDraw(length, drawn, { delay });
-  // The arrowhead appears as the stretch gets to it.
-  const arrival = useTransform(draw.progress, [0.7, 1], [0, 1]);
-  // Wider than the stretch, so that it reads as an arrowhead and not as its end.
-  const half = Math.max(5, width * 1.15);
   return (
     <motion.g animate={{ opacity: dimmed ? 0.3 : 1 }} transition={{ duration: 0.25 }}>
       <motion.path d={path} fill="none" strokeWidth={width} strokeLinecap="round" className={INK[tone].stroke} style={draw.style} />
       <g transform={`translate(${head.x} ${head.y}) rotate(${head.heading})`}>
-        <motion.path
-          d={`M ${-half * 0.8} ${-half} L ${half} 0 L ${-half * 0.8} ${half} z`}
-          strokeWidth={1.5}
-          strokeLinejoin="round"
-          className={`${INK[tone].fill} ${INK[tone].stroke}`}
-          style={{ opacity: arrival, scale: arrival }}
-        />
+        <Arrowhead tone={tone} half={Math.max(5, width * 1.15)} progress={draw.progress} />
       </g>
     </motion.g>
   );

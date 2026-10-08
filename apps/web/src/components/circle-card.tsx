@@ -34,6 +34,8 @@ interface Props {
 }
 
 const SECONDS_PER_LEDGER = 5;
+/** How the receipt slides out from under the figures. */
+const SLIDE = { duration: 0.7, ease: EASE };
 
 function timeLeft(ledgers: number): string {
   const minutes = Math.max(1, Math.round((ledgers * SECONDS_PER_LEDGER) / 60));
@@ -212,9 +214,9 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger, canSign
               className="-mt-6 overflow-hidden"
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
-              transition={{ duration: 0.7, ease: EASE }}
+              transition={SLIDE}
             >
-              <motion.div initial={{ y: -28 }} animate={{ y: 0 }} transition={{ duration: 0.7, ease: EASE }} className="pt-3">
+              <motion.div initial={{ y: -28 }} animate={{ y: 0 }} transition={SLIDE} className="pt-3">
                 <Receipt settlement={settlement} me={me} nameOf={nameOf} />
               </motion.div>
             </motion.div>
@@ -248,16 +250,7 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger, canSign
             />
           ) : settled ? (
             // With the receipt at hand, the link is on it.
-            !settlement && (
-              <a
-                href={`${EXPLORER_URL}/tx/${shown.proposal?.txHash}`}
-                target="_blank"
-                rel="noreferrer"
-                className={`self-start text-body-sm font-medium underline underline-offset-4 ${INK.free.text}`}
-              >
-                Ver la transacción en la red
-              </a>
-            )
+            !settlement && <TransactionLink txHash={shown.proposal?.txHash} className="self-start text-body-sm" />
           ) : !mine ? (
             <p className="text-sm text-body">Tu negocio no participa en este círculo.</p>
           ) : mine.signed ? (
@@ -300,6 +293,20 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger, canSign
   );
 }
 
+/** Where anyone can check the transaction that settled a circle. */
+function TransactionLink({ txHash, className = "" }: { txHash?: string; className?: string }) {
+  return (
+    <a
+      href={`${EXPLORER_URL}/tx/${txHash}`}
+      target="_blank"
+      rel="noreferrer"
+      className={`font-medium underline underline-offset-4 ${INK.free.text} ${className}`}
+    >
+      Ver la transacción en la red
+    </a>
+  );
+}
+
 /** The proof of a settlement, to keep: when it was, the transaction, and the file for the books. */
 function Receipt({ settlement, me, nameOf }: { settlement: SettlementView; me: string; nameOf: (address: string) => string }) {
   const { txHash, closedAt } = settlement;
@@ -316,14 +323,7 @@ function Receipt({ settlement, me, nameOf }: { settlement: SettlementView; me: s
         <CopyButton text={txHash} label="Copiar" copied="Transacción copiada" className="!text-caption" />
       </p>
       <p className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
-        <a
-          href={`${EXPLORER_URL}/tx/${txHash}`}
-          target="_blank"
-          rel="noreferrer"
-          className={`font-medium underline underline-offset-4 ${INK.free.text}`}
-        >
-          Ver la transacción en la red
-        </a>
+        <TransactionLink txHash={txHash} />
         <Button variant="quiet" onClick={() => downloadReceipt(settlement, me, nameOf)}>
           Descargar
         </Button>

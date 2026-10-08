@@ -142,7 +142,7 @@ export function Tick({ className = "" }: { className?: string }) {
   );
 }
 
-export interface Step {
+interface Step {
   label: string;
   state: "done" | "doing" | "todo";
 }

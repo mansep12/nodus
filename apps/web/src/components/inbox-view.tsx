@@ -42,51 +42,49 @@ function withKept<Item>(list: Item[], kept: Kept<Item>[], keyOf: (item: Item) =>
   return whole;
 }
 
+/** A circle kept in the group it was in, and how long until it moves on: `null` while it waits for its settlement. */
+interface Stay extends Kept<Place> {
+  wait: number | null;
+}
+
 /**
  * Keeps every circle in the group it was in for a moment after the state
  * moves it to another, and for as long as its settlement is on its way.
  * Returns the circles to show in a group.
  */
 function useStaying(groups: Record<Place, CircleView[]>) {
-  const places = (Object.keys(groups) as Place[]).flatMap((place) => groups[place].map((circle) => ({ key: circle.key, place })));
-  const signature = places.map(({ key, place }) => `${key}\t${place}`).join("\n");
+  const places = (Object.keys(groups) as Place[]).flatMap((place) =>
+    groups[place].map((circle) => ({ key: circle.key, place, sending: circle.proposal?.status === "submitted" })),
+  );
+  const signature = JSON.stringify(places);
   const [seen, setSeen] = useState({ signature, places });
-  const [stays, setStays] = useState<Map<string, Kept<Place>>>(() => new Map());
+  const [stays, setStays] = useState<Map<string, Stay>>(() => new Map());
   if (seen.signature !== signature) {
     setSeen({ signature, places });
-    const next = new Map<string, Kept<Place>>();
-    for (const { key, place } of places) {
-      const staying = stays.get(key);
+    const next = new Map<string, Stay>();
+    for (const { key, place, sending } of places) {
       const index = seen.places.findIndex((before) => before.key === key);
-      const was = staying?.item ?? seen.places[index]?.place;
+      const was = stays.get(key)?.item ?? seen.places[index]?.place;
       if (was === undefined || was === place) continue;
-      const before = seen.places.slice(0, index).findLast((other) => other.place === was);
-      next.set(key, staying ?? { item: was, after: before?.key ?? null });
+      const after = stays.get(key)?.after ?? seen.places.slice(0, index).findLast((other) => other.place === was)?.key ?? null;
+      next.set(key, { item: was, after, wait: sending ? null : STAY_MS[place] });
     }
     setStays(next);
   }
 
-  // A circle being sent stays until it is settled; the rest move on after their moment.
-  const leaving = places
-    .filter(({ key }) => stays.has(key) && !groups.waiting.some((circle) => circle.key === key && circle.proposal?.status === "submitted"))
-    .map(({ key, place }) => `${key}\t${place}`)
-    .join("\n");
   useEffect(() => {
-    if (!leaving) return;
-    const timers = leaving.split("\n").map((entry) => {
-      const [key, place] = entry.split("\t") as [string, Place];
-      return setTimeout(
-        () =>
-          setStays((current) => {
-            const next = new Map(current);
-            next.delete(key);
-            return next;
-          }),
-        STAY_MS[place],
-      );
+    const timers = [...stays].flatMap(([key, { wait }]) => {
+      if (wait === null) return [];
+      const leave = () =>
+        setStays((current) => {
+          const next = new Map(current);
+          next.delete(key);
+          return next;
+        });
+      return [setTimeout(leave, wait)];
     });
     return () => timers.forEach(clearTimeout);
-  }, [leaving]);
+  }, [stays]);
 
   const circleOf = new Map(Object.values(groups).flatMap((circles) => circles.map((circle) => [circle.key, circle] as const)));
   return (place: Place): CircleView[] =>
@@ -118,9 +116,10 @@ export function InboxView() {
     (obligation) => obligation.id,
   );
   const keep = (obligation: ObligationView) => {
-    const after = debts[debts.findIndex((other) => other.id === obligation.id) - 1]?.id ?? null;
-    setAccepted((current) => new Map(current).set(obligation.id, { item: obligation, after, gone: false }));
-    setTimeout(() => setAccepted((current) => new Map(current).set(obligation.id, { item: obligation, after, gone: true })), ACCEPTED_MS);
+    const kept = { item: obligation, after: debts[debts.indexOf(obligation) - 1]?.id ?? null };
+    const mark = (gone: boolean) => setAccepted((current) => new Map(current).set(obligation.id, { ...kept, gone }));
+    mark(false);
+    setTimeout(() => mark(true), ACCEPTED_MS);
   };
 
   // A circle reached by link scrolls into view.
@@ -183,7 +182,12 @@ export function InboxView() {
             <Group title="Deudas por aceptar" count={toAccept.length || undefined}>
               {debts.map((obligation) => (
                 <Folding key={obligation.id} gap={GAP.cards}>
-                  <DebtToAccept obligation={obligation} name={nameOf(obligation.creditor)} onAccepted={() => keep(obligation)} />
+                  <DebtToAccept
+                    obligation={obligation}
+                    name={nameOf(obligation.creditor)}
+                    accepted={accepted.has(obligation.id)}
+                    onAccepted={() => keep(obligation)}
+                  />
                 </Folding>
               ))}
             </Group>
@@ -268,19 +272,18 @@ interface DebtProps {
   name: string;
 }
 
+interface AcceptProps {
+  /** Whether the chain already has the debt as accepted: the card says so itself, where the eye is, before it leaves. */
+  accepted: boolean;
+  onAccepted: () => void;
+}
+
 /** A debt another business says this one owes it, to accept with a signature. */
-function DebtToAccept({ obligation, name, onAccepted }: DebtProps & { onAccepted: () => void }) {
+function DebtToAccept({ obligation, name, accepted, onAccepted }: DebtProps & AcceptProps) {
   const { me, nameOf } = useNodus();
   const notify = useToast();
   const id = BigInt(obligation.id);
-  // Accepted as soon as the chain says so; the card says it itself, where the eye is, and then leaves.
-  const [accepted, setAccepted] = useState(false);
-  const accept = useAction(() => acceptDebt(id), {
-    onSuccess: () => {
-      setAccepted(true);
-      onAccepted();
-    },
-  });
+  const accept = useAction(() => acceptDebt(id), { onSuccess: onAccepted });
   const reject = useAction(() => rejectDebt(id), { onSuccess: () => notify("Deuda rechazada.") });
   const [rejecting, setRejecting] = useState(false);
   return (

@@ -1,9 +1,9 @@
 "use client";
 
-import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
+import { animate, motion, useMotionValue, useReducedMotion, useTransform, type MotionValue } from "motion/react";
 import { useEffect } from "react";
 import { EASE } from "@/lib/motion";
-import { INK } from "@/lib/tones";
+import { INK, type Tone } from "@/lib/tones";
 import { Avatar } from "./ui";
 
 interface Options {
@@ -45,6 +45,28 @@ export function useDraw(length: number, drawn: boolean, { delay = 0, duration = 
   };
 }
 
+interface ArrowheadProps {
+  tone: Tone;
+  /** Half its width: wider than its cord, so that it reads as an arrowhead and not as the cord's end. */
+  half: number;
+  /** How much of its cord is drawn. It appears as the cord gets to it. */
+  progress: MotionValue<number>;
+}
+
+/** The head of a cord, which says which way the money is owed. It points right from where it is put. */
+export function Arrowhead({ tone, half, progress }: ArrowheadProps) {
+  const arrival = useTransform(progress, [0.7, 1], [0, 1]);
+  return (
+    <motion.path
+      d={`M ${-half * 0.8} ${-half} L ${half} 0 L ${-half * 0.8} ${half} z`}
+      strokeWidth={1.5}
+      strokeLinejoin="round"
+      className={`${INK[tone].fill} ${INK[tone].stroke}`}
+      style={{ opacity: arrival, scale: arrival }}
+    />
+  );
+}
+
 /** The cord between the two businesses of a debt, from the edge of one to the arrowhead at the other. */
 const SPAN = { width: 72, height: 24, from: 4, to: 56, head: 61 };
 
@@ -62,7 +84,6 @@ interface DebtCordProps {
  */
 export function DebtCord({ debtor, creditor, accepted }: DebtCordProps) {
   const draw = useDraw(SPAN.to - SPAN.from, accepted);
-  const arrival = useTransform(draw.progress, [0.7, 1], [0, 1]);
   const waiting = useTransform(draw.progress, [0, 1], [0.85, 0]);
   const middle = SPAN.height / 2;
   return (
@@ -88,13 +109,7 @@ export function DebtCord({ debtor, creditor, accepted }: DebtCordProps) {
           style={draw.style}
         />
         <g transform={`translate(${SPAN.head} ${middle})`}>
-          <motion.path
-            d="M -4 -5 L 5 0 L -4 5 z"
-            strokeWidth={1.5}
-            strokeLinejoin="round"
-            className={`${INK.debt.fill} ${INK.debt.stroke}`}
-            style={{ opacity: arrival, scale: arrival }}
-          />
+          <Arrowhead tone="debt" half={5} progress={draw.progress} />
         </g>
       </svg>
       <Avatar name={creditor} tone="debt" />
