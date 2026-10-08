@@ -7,10 +7,10 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
-import { Address, FeeBumpTransaction, StrKey, TransactionBuilder, hash, rpc, xdr } from "@stellar/stellar-sdk";
+import { FeeBumpTransaction, StrKey, TransactionBuilder, hash, rpc, xdr } from "@stellar/stellar-sdk";
 import { credentials, type Db } from "@nodus/db";
 import { ACCOUNT_WASM_HASH, HORIZON_URL, NETWORK_PASSPHRASE } from "@nodus/stellar";
-import { accountRule, server } from "./chain";
+import { accountRule, namesPasskey, server } from "./chain";
 import { getDb } from "./db";
 import { UserError } from "./errors";
 
@@ -49,9 +49,7 @@ export async function registerCredential(input: CredentialInput): Promise<Creden
 
   const rule = await accountRule(input.address, input.contextRuleId, true);
   if (!rule) throw new UserError("La cuenta no tiene esa regla.");
-  const keyData = Buffer.concat([Buffer.from(input.publicKey, "hex"), Buffer.from(input.credentialId, "base64url")]);
-  const named = rule.signers.some((signer) => signer.kind === "External" && signer.keyData.equals(keyData));
-  if (!named) throw new UserError("Esa passkey no firma por esta cuenta.");
+  if (!namesPasskey(rule, input.publicKey, input.credentialId)) throw new UserError("Esa passkey no firma por esta cuenta.");
 
   // The passkey the account was born with signs under its first rule; nobody gets to claim otherwise.
   const isPrimary = input.contextRuleId === 0;
@@ -182,10 +180,4 @@ export function kitRecord(record: CredentialRecord) {
     creationLedger: record.creationLedger ?? undefined,
     birthConstructorArgsHash: record.birthConstructorArgsHash ?? undefined,
   };
-}
-
-/** `address`, if it is a well-formed smart account address. */
-export function accountAddress(value: unknown): string {
-  if (typeof value !== "string" || !StrKey.isValidContract(value)) throw new UserError("La dirección de la cuenta no es válida.");
-  return Address.fromString(value).toString();
 }

@@ -11,7 +11,7 @@
 import { xdr } from "@stellar/stellar-sdk";
 import { Client as NodusClient } from "@nodus/contract-client";
 import type { InvitationView, SessionView } from "@nodus/api";
-import { NETWORK_PASSPHRASE, RPC_URL, WEBAUTHN_VERIFIER, defaultRuleIds } from "@nodus/stellar";
+import { NETWORK_PASSPHRASE, RPC_URL, WEBAUTHN_VERIFIER, ruleIdsUnder } from "@nodus/stellar";
 import { MemoryStorage, createCallContractContext, createWebAuthnSigner } from "smart-account-kit";
 import { connectApp, type Business } from "./app.ts";
 import { UNIT, log } from "./harness.ts";
@@ -100,7 +100,7 @@ assert(connected?.contractId === owner.address, "the clerk's kit connects to the
 log("Clerk entered from its own device");
 
 // --- The clerk registers a debt for the business, signing under its own rule.
-const underRule = (entry: xdr.SorobanAuthorizationEntry) => defaultRuleIds(entry).map(() => ruleId);
+const underRule = (entry: xdr.SorobanAuthorizationEntry) => ruleIdsUnder(entry, ruleId);
 const registering = await nodus.register({
   creditor: owner.address,
   debtor: client.address,

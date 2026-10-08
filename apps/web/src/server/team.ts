@@ -9,7 +9,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { businesses, credentials, invitations } from "@nodus/db";
 import { rawPublicKey } from "@nodus/stellar";
 import type { InvitationView, Role, TeamView } from "@/lib/types";
-import { accountRule, forgetRules } from "./chain";
+import { accountRule, forgetRules, isOwnerRule, namesPasskey } from "./chain";
 import { registerCredential, revokeCredential } from "./credentials";
 import { getDb } from "./db";
 import { UserError } from "./errors";
@@ -41,7 +41,7 @@ export async function team(address: string, currentCredentialId: string): Promis
     await Promise.all(
       active.map(async (key): Promise<[string, Role]> => {
         const rule = await accountRule(address, key.contextRuleId);
-        return [key.credentialId, rule && rule.contextType.kind === "Default" && rule.policies.length === 0 ? "owner" : "clerk"];
+        return [key.credentialId, isOwnerRule(rule) ? "owner" : "clerk"];
       }),
     ),
   );
@@ -144,9 +144,8 @@ export async function dropCredential(address: string, credentialId: string): Pro
   if (!key) throw new UserError("Esa passkey no es de esta cuenta.");
   forgetRules(address);
   const rule = await accountRule(address, key.contextRuleId, true);
-  const keyData = Buffer.concat([Buffer.from(key.publicKey, "hex"), Buffer.from(key.credentialId, "base64url")]);
-  const stillThere = rule?.signers.some((signer) => signer.kind === "External" && signer.keyData.equals(keyData));
-  if (stillThere) throw new UserError("La cuenta todavía reconoce esa passkey. Quítala de la cuenta primero.");
+  if (rule && namesPasskey(rule, key.publicKey, key.credentialId))
+    throw new UserError("La cuenta todavía reconoce esa passkey. Quítala de la cuenta primero.");
   await revokeCredential(db, credentialId);
   await db
     .update(invitations)

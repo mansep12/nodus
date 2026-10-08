@@ -16,6 +16,7 @@ mock.module("@/server/chain", () => ({
   },
   server: {},
   accountRule: async () => undefined,
+  isOwnerRule: () => false,
   passkeySigners: () => [],
   tokenBalance: async () => 0n,
   latestLedger: async () => 1_000,

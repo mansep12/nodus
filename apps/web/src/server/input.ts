@@ -33,10 +33,6 @@ export function integer(value: unknown, what: string, { min = 0, max = Number.MA
   return number;
 }
 
-export function optionalInteger(value: unknown, what: string, bounds?: { min?: number; max?: number }): number | undefined {
-  return value === undefined || value === null || value === "" ? undefined : integer(value, what, bounds);
-}
-
 /** A 32-byte hash as lowercase hex. */
 export function hash32(value: unknown, what: string): string {
   if (typeof value !== "string" || !/^[0-9a-fA-F]{64}$/.test(value)) throw new UserError(`${what} no es válido.`);

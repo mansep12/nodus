@@ -146,15 +146,15 @@ export function passkeySigners(rule: AccountRule): PasskeySigner[] {
   );
 }
 
-/**
- * The passkey a smart account answers to, if the account is set up the way
- * this app sets them up: a default rule with that passkey as its only signer
- * and no policies. Undefined for anything else.
- */
-export async function accountSigner(address: string): Promise<PasskeySigner | undefined> {
-  const rule = await accountRule(address, 0);
-  if (!rule || rule.contextType.kind !== "Default" || rule.policies.length > 0 || rule.signers.length !== 1) return undefined;
-  return passkeySigners(rule)[0];
+/** Whether a rule may authorize anything the account can do: a `Default` rule with no policies. */
+export function isOwnerRule(rule: AccountRule | undefined): rule is AccountRule {
+  return rule !== undefined && rule.contextType.kind === "Default" && rule.policies.length === 0;
+}
+
+/** Whether `rule` names a passkey among its signers, by its public key (hex) followed by its credential id. */
+export function namesPasskey(rule: AccountRule, publicKey: string, credentialId: string): boolean {
+  const keyData = Buffer.concat([Buffer.from(publicKey, "hex"), Buffer.from(credentialId, "base64url")]);
+  return rule.signers.some((signer) => signer.kind === "External" && signer.keyData.equals(keyData));
 }
 
 const LEDGER_FRESHNESS_MS = 3_000;

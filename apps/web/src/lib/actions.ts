@@ -1,7 +1,7 @@
 /** What a business does in Nodus. Each action is signed with its passkey. */
 import { Address, scValToNative, xdr } from "@stellar/stellar-sdk";
 import { Client as NodusClient } from "@nodus/contract-client";
-import { NETWORK_PASSPHRASE, RPC_URL, entryAddress } from "@nodus/stellar";
+import { NETWORK_PASSPHRASE, RPC_URL, entryAddress, ruleIdsUnder } from "@nodus/stellar";
 import type { SmartAccountKit } from "smart-account-kit";
 import { post } from "./api";
 import { NODUS_CONTRACT, TOKEN_CONTRACT } from "./config";
@@ -19,11 +19,7 @@ export function configureSigner({ ruleId }: { ruleId: number }) {
 }
 
 /** Every invocation of an entry is signed under the session's rule. */
-function ruleIds(entry: xdr.SorobanAuthorizationEntry): number[] {
-  const count = (invocation: xdr.SorobanAuthorizedInvocation): number =>
-    invocation.subInvocations().reduce((total, sub) => total + count(sub), 1);
-  return new Array(count(entry.rootInvocation())).fill(signingRule);
-}
+const ruleIds = (entry: xdr.SorobanAuthorizationEntry) => ruleIdsUnder(entry, signingRule);
 
 const CONTRACT_ERRORS: Record<number, string> = {
   1: "El monto no es válido.",

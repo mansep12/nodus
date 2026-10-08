@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { businesses } from "@nodus/db";
 import { verifyAssertion, type AssertionJSON } from "@nodus/stellar";
 import type { SessionView } from "@/lib/types";
-import { accountRule } from "@/server/chain";
+import { accountRule, isOwnerRule } from "@/server/chain";
 import { credentialsOf, findCredential, kitRecord } from "@/server/credentials";
 import { getDb } from "@/server/db";
 import { respond, UserError } from "@/server/errors";
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
     const rule = await accountRule(credential.address, credential.contextRuleId);
     if (!rule) throw new UserError("La cuenta ya no reconoce esa passkey.");
-    const role: Role = rule.contextType.kind === "Default" && rule.policies.length === 0 ? "owner" : "clerk";
+    const role: Role = isOwnerRule(rule) ? "owner" : "clerk";
     await startSession({ address: credential.address, credentialId: credential.credentialId, ruleId: credential.contextRuleId, role });
 
     const db = await getDb();

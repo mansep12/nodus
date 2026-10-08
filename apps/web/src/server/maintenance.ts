@@ -6,7 +6,8 @@ import { nodus, server } from "./chain";
 
 const KEEP_ALIVE_BATCH = 50;
 
-function relayerKey(): string {
+/** The key of the relayer that sends and pays for them. */
+export function relayerKey(): string {
   const apiKey = process.env.OZ_CHANNELS_API_KEY;
   if (!apiKey) throw new Error("OZ_CHANNELS_API_KEY is not set");
   return apiKey;

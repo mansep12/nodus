@@ -14,10 +14,11 @@ import { NETWORK_PASSPHRASE, addressCredentials, entryAddress, isSignedByPasskey
 import { NODUS_CONTRACT, TOKEN_SYMBOL } from "@/lib/config";
 import { formatAmount } from "@/lib/format";
 import type { SigningRequest } from "@/lib/types";
-import { accountRule, forgetBalances, latestLedger, nodus, passkeySigners, server, tokenBalance } from "./chain";
+import { accountRule, forgetBalances, isOwnerRule, latestLedger, nodus, passkeySigners, server, tokenBalance } from "./chain";
 import { currentCandidates, recomputeCandidates } from "./circles";
 import { getDb, refresh } from "./db";
 import { UserError } from "./errors";
+import { relayerKey } from "./maintenance";
 import { notifyChanges } from "./notify";
 
 type Proposal = typeof proposals.$inferSelect;
@@ -156,7 +157,7 @@ async function isOwnerSignature(signedXdr: string, address: string): Promise<boo
   const ruleId = signedRuleId(signed);
   if (ruleId === undefined) return false;
   const rule = await accountRule(address, ruleId);
-  if (!rule || rule.contextType.kind !== "Default" || rule.policies.length > 0) return false;
+  if (!isOwnerRule(rule)) return false;
   for (const signer of passkeySigners(rule)) {
     if (await isSignedByPasskey(signed, signer, NETWORK_PASSPHRASE, ruleId)) return true;
   }
@@ -197,9 +198,7 @@ async function settle(db: Db, proposal: Proposal, signedEntries: string[]): Prom
   if (claimed.length === 0) return;
 
   try {
-    const apiKey = process.env.OZ_CHANNELS_API_KEY;
-    if (!apiKey) throw new Error("OZ_CHANNELS_API_KEY is not set");
-    const txHash = await relay(apiKey, proposal.func, signedEntries);
+    const txHash = await relay(relayerKey(), proposal.func, signedEntries);
     await mark({ txHash });
     const result = await server.pollTransaction(txHash, { attempts: 20 });
     if (result.status !== rpc.Api.GetTransactionStatus.SUCCESS) throw new Error(`Transaction ended as ${result.status}`);

@@ -44,13 +44,10 @@ export const percent = (part: bigint, whole: bigint) => (whole === 0n ? 0 : Math
 export const clip = (name: string, length: number) => (name.length > length ? `${name.slice(0, length - 1).trimEnd()}…` : name);
 
 const shortDate = new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short" });
-const fullDate = new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "long", year: "numeric" });
 const dateTime = new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeStyle: "short" });
 
 /** "6 oct" */
 export const formatDate = (value: string | Date) => shortDate.format(new Date(value));
-/** "6 de octubre de 2026" */
-export const formatLongDate = (value: string | Date) => fullDate.format(new Date(value));
 /** "06-10-2026, 15:00" */
 export const formatDateTime = (value: string | Date) => dateTime.format(new Date(value));
 

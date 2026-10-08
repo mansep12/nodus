@@ -1,7 +1,7 @@
 /** What the app and the testnet scripts share about the network Nodus runs on. */
 import { Networks } from "@stellar/stellar-sdk";
 
-export { addressCredentials, defaultRuleIds, entryAddress } from "./auth.ts";
+export { addressCredentials, defaultRuleIds, entryAddress, ruleIdsUnder } from "./auth.ts";
 export { isSignedByPasskey, signedRuleId, type PasskeySigner } from "./passkey.ts";
 export { rawPublicKey, verifyAssertion, type AssertionExpectations, type AssertionJSON } from "./webauthn.ts";
 
