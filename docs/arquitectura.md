@@ -167,11 +167,11 @@ Al cargar, `SessionProvider` (`apps/web/src/lib/session.tsx`) cuadra las dos mem
 
 ### Respaldo y contador
 
-| Llave            | Regla en la cuenta                                                                                               | Rol de la sesión | Puede                               |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------- |
-| Passkey original | 0, `Default`, sin políticas                                                                                      | `owner`          | Todo.                               |
-| Respaldo         | Una regla `Default` propia, sin políticas, con solo esa passkey                                                  | `owner`          | Todo, incluso firmar liquidaciones. |
-| Contador         | `CallContract(<contrato Nodus>)` con la policy allowlist instalada con `register`, `accept`, `reject` y `cancel` | `clerk`          | Solo esas cuatro funciones.         |
+| Llave            | Regla en la cuenta                                                                                     | Rol de la sesión | Puede                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------ | ---------------- | ----------------------------------- |
+| Passkey original | 0, `Default`, sin políticas                                                                            | `owner`          | Todo.                               |
+| Respaldo         | Una regla `Default` propia, sin políticas, con solo esa passkey                                        | `owner`          | Todo, incluso firmar liquidaciones. |
+| Contador         | `CallContract(<contrato Nodus>)` con la policy allowlist instalada con `register`, `accept` y `reject` | `clerk`          | Solo esas tres funciones.           |
 
 Cada passkey tiene su propia regla, así que firma sola. La app firma cada invocación bajo la regla de la sesión (`configureSigner` y `ruleIds` en `actions.ts`). Qué puede y qué no un contador está en [seguridad.md](seguridad.md#qué-puede-y-qué-no-puede-un-contador).
 
@@ -308,7 +308,7 @@ Testnet se reinicia de vez en cuando y se lleva contratos y cuentas. Después ha
 | ------------------ | ------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `faucetPerAddress` | `faucet:<cuenta>`   | 3 por día    | `POST /api/faucet`                                                                                                                                |
 | `faucetPerIp`      | `faucet:ip:<ip>`    | 20 por día   | `POST /api/faucet`                                                                                                                                |
-| `accountsPerIp`    | `relay:create:<ip>` | 10 por hora  | `POST /api/relay`, cuando crea una cuenta                                                                                                         |
+| `accountsPerIp`    | `relay:create:<ip>` | 30 por hora  | `POST /api/relay`, cuando crea una cuenta                                                                                                         |
 | `relayPerIp`       | `relay:<ip>`        | 120 por hora | `POST /api/relay`                                                                                                                                 |
 | `sessionPerIp`     | `session:<ip>`      | 60 por hora  | `GET /api/session/challenge`, `POST /api/session`, `POST /api/credentials`, `POST /api/invitations/<id>`                                          |
 | `directoryPerIp`   | `directory:<ip>`    | 120 por hora | `GET /api/businesses`                                                                                                                             |

@@ -70,7 +70,7 @@ Sí puede ver en la app todo lo que ve el dueño, escribir notas de referencias,
 - Todas las transacciones van por OpenZeppelin Channels de testnet, que envuelve cada invocación en una transacción de sus propias cuentas y paga la comisión. Los negocios no necesitan XLM; la instalación necesita `OZ_CHANNELS_API_KEY`.
 - `/api/relay` es el relayer que usa el kit en el navegador. No pide sesión, porque la cuenta se crea antes de que haya una, y limita por IP. `classify` decide qué patrocina:
   - cualquier invocación del contrato Nodus, de cualquier función y de quien sea;
-  - crear un contrato con el wasm de la cuenta inteligente (`ACCOUNT_WASM_HASH`), hasta 10 por hora por IP;
+  - crear un contrato con el wasm de la cuenta inteligente (`ACCOUNT_WASM_HASH`), hasta 30 por hora por IP;
   - `add_context_rule`, `remove_context_rule`, `add_signer`, `remove_signer`, `add_policy` y `remove_policy` llamadas sobre un contrato que corre ese wasm.
   - Todo lo demás recibe 403.
 - El relayer no firma por nadie: lleva firmas ajenas. La ruta no las revisa antes de enviar; eso queda para la red. Las firmas de una liquidación sí las revisa el servidor antes de que lleguen al relayer.
@@ -81,7 +81,7 @@ Sí puede ver en la app todo lo que ve el dueño, escribir notas de referencias,
 1. **La red está fija en el código.** `packages/stellar` fija testnet: RPC, Horizon, passphrase, la URL de Channels, el hash del wasm de la cuenta y el verificador WebAuthn. Hay que parametrizarlos y confirmar las direcciones de OpenZeppelin en mainnet.
 2. **Sin auditoría.** Ni el contrato Nodus ni la policy están auditados. El contrato no tiene administrador ni función de actualización: corregirlo es desplegar otro y migrar las deudas.
 3. **Versión de la policy.** La policy copia los tipos de `stellar-accounts` 0.7 de OpenZeppelin y la app usa `smart-account-kit` 0.8. Hay que confirmar que coinciden con las cuentas de mainnet.
-4. **La policy no mira el contrato.** Compara solo el nombre de la función y confía en que la regla sea `CallContract(<contrato Nodus>)`. Instalada en otra regla, dejaría llamar a `register` o `cancel` de cualquier contrato.
+4. **La policy no mira el contrato.** Compara solo el nombre de la función y confía en que la regla sea `CallContract(<contrato Nodus>)`. Instalada en otra regla, dejaría llamar a `register` o `accept` de cualquier contrato.
 5. **Vida de los datos en la red.** Las deudas viven 120 días desde la última escritura y dependen de que el cron corra `keep_alive`. Lo que la policy guarda para cada contador se extiende solo al instalarse, y las cuentas también tienen vida limitada. Falta decidir cómo se restauran entradas archivadas; hoy `reconcile` marca `expired` una deuda que ya no puede leer.
 6. **Token real.** Pasar a USDC real (el símbolo y los 7 decimales están fijos en `apps/web/src/lib/config.ts`) y quitar `TOKEN_ISSUER_SECRET` y el faucet.
 7. **Patrocinio sin cuota.** `/api/relay` paga cualquier llamada a Nodus de cualquiera, con límites solo por IP. En mainnet eso es plata: hace falta una cuota por cuenta, un presupuesto y alertas.
