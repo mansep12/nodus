@@ -204,7 +204,7 @@ Para quitar una passkey, el dueño borra su regla en la cadena (`kit.rules.remov
 ## Sincronización y mantenimiento
 
 ```text
-lectura: /api/state, cada 3 s por pestaña       cron: /api/sync, cada hora
+lectura: /api/state, cada 3 s por pestaña       cron: /api/sync, cada día
               |                                          |
               v                                          v
 refresh(): si pasaron más de 2 s                 maintain(): refresh(true)
@@ -218,8 +218,8 @@ afterChange(): cierra propuestas vencidas, busca círculos y manda avisos
 
 - **En cada lectura.** `refresh` sincroniza si la copia tiene más de 2 segundos, una vez a la vez por instancia. Después de una transacción propia, el navegador pide `/api/state?fresh=1`, que fuerza `refresh(true)`.
 - **`sync`.** Pide al RPC los eventos del contrato desde el cursor, de a 200, y aplica cada uno una sola vez (la llave es el id del evento) en la misma transacción que guarda el cursor (`cursors`). La primera vez parte en `NODUS_DEPLOY_LEDGER`, o en el ledger más antiguo que guarda el RPC si ese ya no está o si la variable falta.
-- **Retención.** El RPC guarda cerca de una semana de eventos. Si el cursor queda fuera, el indexador sigue desde lo más antiguo que hay y avisa el hueco; `reconcile` cuadra entonces la copia leyendo directo el almacenamiento del contrato: agrega deudas que no conocía, corrige monto y aceptación, y marca `expired` las que el contrato ya no guarda. El cron de cada hora mantiene el cursor dentro de la ventana aunque nadie use la app. Para transacciones viejas, como la creación de una cuenta, el servidor y el kit consultan Horizon, que guarda toda la historia.
-- **`/api/sync`.** Acepta GET y POST. Si existe `CRON_SECRET`, exige `Authorization: Bearer <CRON_SECRET>`, que Vercel manda solo; si no existe, en producción rechaza todo y en desarrollo queda abierta. `vercel.json` la programa con `0 * * * *` y puede durar hasta 300 segundos.
+- **Retención.** El RPC guarda cerca de una semana de eventos. Si el cursor queda fuera, el indexador sigue desde lo más antiguo que hay y avisa el hueco; `reconcile` cuadra entonces la copia leyendo directo el almacenamiento del contrato: agrega deudas que no conocía, corrige monto y aceptación, y marca `expired` las que el contrato ya no guarda. El cron diario mantiene el cursor dentro de la ventana aunque nadie use la app. Para transacciones viejas, como la creación de una cuenta, el servidor y el kit consultan Horizon, que guarda toda la historia.
+- **`/api/sync`.** Acepta GET y POST. Si existe `CRON_SECRET`, exige `Authorization: Bearer <CRON_SECRET>`, que Vercel manda solo; si no existe, en producción rechaza todo y en desarrollo queda abierta. `vercel.json` la programa una vez al día (`0 6 * * *`, el plan Hobby de Vercel no permite más seguido) y puede durar hasta 300 segundos.
 - **`/api/health`.** Dice si responden la base y el RPC (200 o 503), si hay relayer y avisos configurados, y hace cuánto sincronizó esta instancia (`lagSeconds`). Esa hora y los cachés (ledger 3 s, saldos 3 s, reglas de cuentas 60 s) viven en la memoria de cada instancia.
 
 ## Avisos
@@ -280,7 +280,7 @@ La CI (`.github/workflows/ci.yml`) corre `format:check`, `lint`, `typecheck`, `t
 
 1. Crear el Postgres en Supabase y aplicar el esquema: `DATABASE_URL=… bun run db:migrate`. La app migra sola solo el Postgres embebido, nunca uno externo.
 2. Correr `bun run deploy:testnet` y copiar a Vercel las variables de `apps/web/.env.local`, más `DATABASE_URL`, `CRON_SECRET` y `NEXT_PUBLIC_APP_URL`.
-3. El proyecto compila `apps/web`. `vercel.json` trae el cron de cada hora; Vercel lo lee del directorio raíz del proyecto, así que si el proyecto apunta a `apps/web` el archivo tiene que estar ahí.
+3. El proyecto compila `apps/web`. `vercel.json` trae el cron diario; Vercel lo lee del directorio raíz del proyecto, así que si el proyecto apunta a `apps/web` el archivo tiene que estar ahí.
 4. En Vercel, sin `DATABASE_URL` la app se niega a partir: el Postgres embebido no tiene disco donde guardarse.
 
 Las rutas largas declaran su duración: `/api/relay`, `/api/faucet` y `/api/proposals/<id>/signatures` hasta 60 segundos, `/api/sync` hasta 300.
@@ -294,7 +294,7 @@ docker build -t nodus --build-arg NEXT_PUBLIC_NODUS_CONTRACT=C… --build-arg NE
 docker run -p 3000:3000 --env-file apps/web/.env.local nodus
 ```
 
-Las `NEXT_PUBLIC_*` van como argumentos de build (también `NEXT_PUBLIC_ALLOWLIST_POLICY` y `NEXT_PUBLIC_APP_URL`). La imagen corre en modo producción: pide `NODUS_SESSION_SECRET`, `/api/sync` no corre sin `CRON_SECRET` y no trae cron, así que algo de afuera tiene que llamarla cada hora con el token. Copia las migraciones para el Postgres embebido, pero la carpeta de la app no es del usuario `node`, así que en la práctica necesita `DATABASE_URL` (con `bun run db:migrate` aplicado antes).
+Las `NEXT_PUBLIC_*` van como argumentos de build (también `NEXT_PUBLIC_ALLOWLIST_POLICY` y `NEXT_PUBLIC_APP_URL`). La imagen corre en modo producción: pide `NODUS_SESSION_SECRET`, `/api/sync` no corre sin `CRON_SECRET` y no trae cron, así que algo de afuera tiene que llamarla cada día con el token. Copia las migraciones para el Postgres embebido, pero la carpeta de la app no es del usuario `node`, así que en la práctica necesita `DATABASE_URL` (con `bun run db:migrate` aplicado antes).
 
 ### Reinicios de testnet
 
