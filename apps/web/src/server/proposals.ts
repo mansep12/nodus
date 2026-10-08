@@ -75,6 +75,8 @@ async function create(db: Db, clearings: Clearing[], key: string, address: strin
     .flatMap((candidate) => (candidate.netOnly ? [candidate.full, candidate.netOnly] : [candidate.full]))
     .find((candidate) => clearingsKey(candidate.clearings) === key);
   if (!offered) throw new UserError("Ese círculo ya no está disponible. Revisa los círculos actualizados.");
+  // A proposal sets its debts aside until it expires: only a party of the circle gets to start one.
+  if (!offered.parties.some((party) => party.address === address)) throw new UserError("Tu cuenta no participa en este círculo.");
 
   // The contract would reject it anyway, but this way the reason is clear. Only
   // the asker's own shortfall is spelled out: the others are not its business.

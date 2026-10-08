@@ -24,6 +24,14 @@ export async function POST(request: Request) {
   if (typeof func !== "string" || !Array.isArray(auth) || !auth.every((entry) => typeof entry === "string")) {
     return Response.json({ success: false, error: "Expected { func, auth }" }, { status: 400 });
   }
+  const ip = clientIp(request);
+  // Counted before anything else: telling what a call is may take a read of the chain.
+  try {
+    await LIMITS.relayPerIp(ip);
+  } catch (error) {
+    if (error instanceof RateLimited) return Response.json({ success: false, error: error.message }, { status: 429 });
+    throw error;
+  }
   const sponsored = await classify(func);
   if (!sponsored) {
     return Response.json({ success: false, error: "This relayer only sponsors Nodus transactions" }, { status: 403 });
@@ -32,8 +40,6 @@ export async function POST(request: Request) {
   const apiKey = process.env.OZ_CHANNELS_API_KEY;
   if (!apiKey) return Response.json({ success: false, error: "The relayer is not configured" }, { status: 500 });
   try {
-    const ip = clientIp(request);
-    await LIMITS.relayPerIp(ip);
     if (sponsored.kind === "account") await LIMITS.accountsPerIp(ip);
     const hash = await relay(apiKey, func, auth);
     forgetBalances();

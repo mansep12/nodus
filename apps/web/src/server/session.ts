@@ -85,7 +85,7 @@ export async function requireSession(): Promise<Session> {
     .select({ revokedAt: credentials.revokedAt, address: credentials.address })
     .from(credentials)
     .where(eq(credentials.credentialId, session.credentialId));
-  if (credential && (credential.revokedAt || credential.address !== session.address)) {
+  if (!credential || credential.revokedAt || credential.address !== session.address) {
     throw new AuthError("Esta passkey ya no firma por la cuenta. Entra de nuevo.");
   }
   return session;

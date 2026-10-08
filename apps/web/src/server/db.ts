@@ -1,7 +1,7 @@
 import "server-only";
 import path from "node:path";
-import { eq } from "drizzle-orm";
-import { connect, jobs, type Db } from "@nodus/db";
+import { eq, lt } from "drizzle-orm";
+import { challenges, connect, jobs, rateLimits, type Db } from "@nodus/db";
 import { openIds, reconcile, sync } from "@nodus/indexer";
 import { NODUS_CONTRACT } from "@/lib/config";
 import { chainReader, server } from "./chain";
@@ -108,5 +108,8 @@ export async function maintain(): Promise<{ synced: boolean; keptAlive: boolean;
     const changed = await reconcile(db, { contractId: NODUS_CONTRACT, reader: chainReader });
     if (changed > 0) await afterChange(db);
   });
+  // Nonces nobody spent and counters whose window closed are of no use to anyone.
+  await db.delete(challenges).where(lt(challenges.createdAt, new Date(Date.now() - DAY_MS)));
+  await db.delete(rateLimits).where(lt(rateLimits.resetAt, new Date(Date.now() - DAY_MS)));
   return { synced: true, keptAlive, reconciled };
 }

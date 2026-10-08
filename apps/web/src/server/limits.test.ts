@@ -5,7 +5,8 @@ import { RateLimited } from "./errors";
 import type * as Limits from "./limits";
 
 const db = await connect();
-mock.module("@/server/db", () => ({ getDb: async () => db }));
+// Bun fixes the shape of a mocked module the first time it loads: every stand-in for the database offers the same names.
+mock.module("@/server/db", () => ({ getDb: async () => db, refresh: async () => {} }));
 // Bun keeps a module mock for the rest of the run, so the stand-in the relay's tests use may be in place;
 // the query string loads the real one.
 const limits = "./limits.ts?real";

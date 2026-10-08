@@ -4,6 +4,8 @@ import { UserError } from "./errors";
 
 /** The JSON body of a request, as an object. */
 export async function body(request: Request): Promise<Record<string, unknown>> {
+  // A form on another site cannot send this content type without the browser asking first.
+  if (!/^application\/json\b/i.test(request.headers.get("content-type") ?? "")) throw new UserError("La solicitud no es válida.");
   const parsed: unknown = await request.json().catch(() => null);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new UserError("La solicitud no es válida.");
   return parsed as Record<string, unknown>;

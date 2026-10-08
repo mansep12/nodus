@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { connect, challenges } from "@nodus/db";
+import { connect, challenges, credentials } from "@nodus/db";
 import { AuthError } from "./errors";
 
 process.env.NODUS_SESSION_SECRET = "a secret only these tests know";
 
 const db = await connect();
-mock.module("@/server/db", () => ({ getDb: async () => db }));
+// Bun fixes the shape of a mocked module the first time it loads: every stand-in for the database offers the same names.
+mock.module("@/server/db", () => ({ getDb: async () => db, refresh: async () => {} }));
 
 /** The browser's cookies, as the request handler sees them. */
 const jar = new Map<string, string>();
@@ -24,6 +25,12 @@ const CLERK = { address: "CACCOUNT", credentialId: "clerk-passkey", ruleId: 2, r
 beforeEach(async () => {
   jar.clear();
   await db.delete(challenges);
+  await db.delete(credentials);
+  await db
+    .insert(credentials)
+    .values(
+      [OWNER, CLERK].map((key) => ({ credentialId: key.credentialId, address: key.address, publicKey: "04", contextRuleId: key.ruleId })),
+    );
 });
 
 describe("challenges", () => {
@@ -85,6 +92,19 @@ describe("sessions", () => {
     // Not even in the shape of one.
     jar.set(name, "not a session");
     expect(await readSession()).toBeNull();
+  });
+
+  test("a session ends when the account lets go of its passkey", async () => {
+    await startSession(CLERK);
+    await db.update(credentials).set({ revokedAt: new Date() });
+
+    await expect(requireSession()).rejects.toBeInstanceOf(AuthError);
+  });
+
+  test("a session of a passkey nobody recorded is refused", async () => {
+    await startSession({ ...OWNER, credentialId: "unknown-passkey" });
+
+    await expect(requireSession()).rejects.toBeInstanceOf(AuthError);
   });
 
   test("only the owner's session may do what only the owner can", async () => {
