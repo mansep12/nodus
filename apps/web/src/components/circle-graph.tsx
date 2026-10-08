@@ -1,11 +1,13 @@
 "use client";
 
-import { motion, useTransform } from "motion/react";
-import { useState } from "react";
+import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
+import { useCallback, useEffect, useState } from "react";
 import { clip, formatAmount, initials } from "@/lib/format";
+import { EASE, UNTYING } from "@/lib/motion";
 import { INK } from "@/lib/tones";
 import type { CircleView } from "@/lib/types";
 import { useDraw } from "./cord";
+import { KNOT, KNOT_STRAND } from "./ui";
 
 // Wider than tall: names are written beside the nodes at the sides.
 const WIDTH = 660;
@@ -20,12 +22,63 @@ const MAX_CORD = 9;
 /** How large each kind of party is drawn. */
 const RADIUS = { me: 28, known: 22, unknown: 10 };
 
+/**
+ * A group turns and grows about the middle of what it holds. This holds
+ * nothing to see and keeps that middle on the middle of the ring, whatever
+ * else is in the group at the time.
+ */
+const ABOUT_CENTER = (
+  <rect
+    x={CENTER.x - RING - 24}
+    y={CENTER.y - RING - 24}
+    width={2 * (RING + 24)}
+    height={2 * (RING + 24)}
+    fill="none"
+    pointerEvents="none"
+  />
+);
+
+/** Where a circle is in being untied: its debts pulled tight into the knot, the knot letting go, or neither. */
+export type Untying = "tight" | "loose" | null;
+
+/**
+ * Follows a circle through being untied, from the moment it is `settled`
+ * while on screen. One that was settled already when it was first shown is
+ * at rest, and so is everything for whoever asked for less motion.
+ */
+export function useUntying(settled: boolean): Untying {
+  const still = useReducedMotion();
+  const [was, setWas] = useState(settled);
+  const [phase, setPhase] = useState<Untying>(null);
+  if (was !== settled) {
+    setWas(settled);
+    setPhase(settled && !still ? "tight" : null);
+  }
+  useEffect(() => {
+    if (phase === null) return;
+    const next = setTimeout(() => setPhase(phase === "tight" ? "loose" : null), UNTYING[phase] * 1000);
+    return () => clearTimeout(next);
+  }, [phase]);
+  return phase;
+}
+
 interface Props {
   circle: CircleView;
   me: string;
   nameOf: (address: string) => string;
   /** Whether to write each business's name beside its node. Without them the drawing is narrower. */
   labels?: boolean;
+  /** Where the circle is in being untied, from `useUntying`. */
+  untying?: Untying;
+}
+
+/** A signature on its way round the ring, from the party that just signed to the next one missing. */
+interface Pass {
+  id: string;
+  from: number;
+  to: number;
+  /** How large the node it is going to is drawn. */
+  reach: number;
 }
 
 const at = (angle: number, radius = RING) => ({ x: CENTER.x + radius * Math.cos(angle), y: CENTER.y + radius * Math.sin(angle) });
@@ -35,12 +88,15 @@ const at = (angle: number, radius = RING) => ({ x: CENTER.x + radius * Math.cos(
  * and every debt the stretch of ring to the business it is owed to. A business
  * sees itself at the bottom and, by name, only the two it deals with: the one
  * that owes it, in blue, and the one it owes, in red. The rest are unnamed
- * nodes that only tell whether they have signed. When the circle is settled
- * the ring lets go.
+ * nodes that only tell whether they have signed. A signature travels on to
+ * the next party missing, and when the circle is settled its debts are
+ * pulled into a knot that lets go.
  */
-export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
+export function CircleGraph({ circle, me, nameOf, labels = true, untying = null }: Props) {
   const [hovered, setHovered] = useState<string | null>(null);
+  const still = useReducedMotion();
   const settled = circle.proposal?.status === "settled";
+  const tight = untying === "tight";
   const { parties, edges } = circle;
   const count = parties.length;
   const mine = parties.findIndex((party) => party.address === me);
@@ -54,6 +110,25 @@ export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
   // one looking sits at the bottom; a circle seen from outside starts at the top.
   const anchor = mine === -1 ? { index: 0, angle: -Math.PI / 2 } : { index: mine, angle: Math.PI / 2 };
   const angleOf = new Map(parties.map((party, index) => [party.address, anchor.angle + ((index - anchor.index) * 2 * Math.PI) / count]));
+
+  // The parties the viewer does not deal with come with a different marker on every read, so they are told apart by their place.
+  const signatures = parties.map((party) => (party.signed ? "1" : "0")).join("");
+  const [seen, setSeen] = useState(signatures);
+  const [passes, setPasses] = useState<Pass[]>([]);
+  if (seen !== signatures) {
+    setSeen(signatures);
+    const fresh = parties.flatMap((party, index): Pass[] => {
+      if (still || settled || seen.length !== count || !party.signed || seen[index] === "1") return [];
+      // Clockwise from the one that signed, the first that has not.
+      const next = parties.findIndex((_, step) => step > 0 && !parties[(index + step) % count]!.signed);
+      if (next === -1) return [];
+      const to = parties[(index + next) % count]!;
+      const from = angleOf.get(party.address)!;
+      return [{ id: `${signatures}:${index}`, from, to: from + (next * 2 * Math.PI) / count, reach: RADIUS[kindOf(to.address)] }];
+    });
+    if (fresh.length > 0) setPasses((current) => [...current, ...fresh]);
+  }
+  const arrived = useCallback((id: string) => setPasses((current) => current.filter((pass) => pass.id !== id)), []);
 
   const largestOfMine = [...owedByMe.values(), ...owedToMe.values()].reduce(
     (max, amount) => (BigInt(amount) > max ? BigInt(amount) : max),
@@ -90,28 +165,51 @@ export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
       role="img"
       aria-label="Círculo de deudas"
     >
-      {/* What is left of the ring once its cords are gone. */}
-      <circle
+      {/* What is left of the ring once it lets go. */}
+      <motion.circle
         cx={CENTER.x}
         cy={CENTER.y}
         r={RING}
         fill="none"
         strokeWidth={1}
-        strokeDasharray={settled ? "2 6" : undefined}
-        className={settled ? "stroke-free/50" : "stroke-hairline-strong"}
+        strokeDasharray="2 6"
+        className="stroke-free/50"
+        initial={false}
+        animate={settled && !tight ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.3 }}
+        transition={{ duration: untying ? UNTYING.loose * 0.85 : 0, ease: EASE }}
       />
 
-      {cords.map((cord, index) => (
-        <Stretch
-          key={`${cord.from}>${cord.to}`}
-          {...cord}
-          drawn={!settled}
-          delay={0.1 + index * 0.12}
-          dimmed={hovered !== null && cord.from !== hovered && cord.to !== hovered}
-        />
+      {/* The ring and its debts, which settling pulls into the middle. Unsettled, they are back at once. */}
+      <motion.g
+        initial={false}
+        animate={settled ? { opacity: 0, scale: 0.16, rotate: 150 } : { opacity: 1, scale: 1, rotate: 0 }}
+        transition={{ duration: tight ? UNTYING.tight * 0.6 : 0, ease: [0.5, 0, 0.3, 1] }}
+      >
+        {ABOUT_CENTER}
+        <circle cx={CENTER.x} cy={CENTER.y} r={RING} fill="none" strokeWidth={1} className="stroke-hairline-strong" />
+        {cords.map((cord, index) => (
+          <Stretch
+            key={index}
+            {...cord}
+            drawn={!settled || tight}
+            delay={0.1 + index * 0.12}
+            dimmed={hovered !== null && cord.from !== hovered && cord.to !== hovered}
+          />
+        ))}
+      </motion.g>
+
+      {untying && <Tie loose={untying === "loose"} />}
+
+      {passes.map((pass) => (
+        <Passing key={pass.id} {...pass} onArrival={arrived} />
       ))}
 
-      <g pointerEvents="none">
+      <motion.g
+        pointerEvents="none"
+        initial={false}
+        animate={{ opacity: tight ? 0 : 1 }}
+        transition={{ duration: tight ? 0.3 : 0.6, delay: untying === "loose" ? 0.3 : 0 }}
+      >
         <text x={CENTER.x} y={CENTER.y - 18} textAnchor="middle" className="eyebrow fill-muted !text-[10.5px]">
           {settled ? "se cancelaron" : "se cancelan"}
         </text>
@@ -126,9 +224,9 @@ export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
         <text x={CENTER.x} y={CENTER.y + 38} textAnchor="middle" className="fill-muted text-[12.5px]">
           {circle.moved === "0" ? "sin mover dinero" : `moviendo ${formatAmount(circle.moved)}`}
         </text>
-      </g>
+      </motion.g>
 
-      {parties.map((party) => {
+      {parties.map((party, index) => {
         const kind = kindOf(party.address);
         const angle = angleOf.get(party.address)!;
         const point = at(angle);
@@ -159,7 +257,7 @@ export function CircleGraph({ circle, me, nameOf, labels = true }: Props) {
 
         return (
           <g
-            key={party.address}
+            key={index}
             transform={`translate(${point.x} ${point.y})`}
             onPointerEnter={() => setHovered(party.address)}
             onPointerLeave={() => setHovered(null)}
@@ -266,6 +364,79 @@ function Stretch({ path, length, width, tone, head, drawn, delay, dimmed }: Stre
         />
       </g>
     </motion.g>
+  );
+}
+
+/** How much larger than the logo the knot is drawn in the middle of the ring. */
+const KNOT_SCALE = 4;
+/** The middle of the knot in its own box, which is not the middle of the box. */
+const KNOT_MIDDLE = { x: 16, y: 18.2 };
+
+/** The knot the debts of a circle are pulled into, each strand drawn in turn, and taken back when it is `loose`. */
+function Tie({ loose }: { loose: boolean }) {
+  return (
+    <motion.g
+      pointerEvents="none"
+      initial={{ opacity: 0, scale: 0.7 }}
+      animate={loose ? { opacity: 0, scale: 1.3 } : { opacity: 1, scale: 1 }}
+      transition={{ duration: loose ? UNTYING.loose * 0.7 : 0.5, delay: loose ? 0 : 0.35, ease: EASE }}
+    >
+      {ABOUT_CENTER}
+      <g
+        transform={`translate(${CENTER.x - KNOT_MIDDLE.x * KNOT_SCALE} ${CENTER.y - KNOT_MIDDLE.y * KNOT_SCALE}) scale(${KNOT_SCALE})`}
+        fill="none"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        className="stroke-ink"
+      >
+        {KNOT.map((strand, index) => (
+          <Strand key={strand.slice(0, 12)} d={strand} drawn={!loose} delay={0.4 + index * 0.14} />
+        ))}
+      </g>
+    </motion.g>
+  );
+}
+
+function Strand({ d, drawn, delay }: { d: string; drawn: boolean; delay: number }) {
+  const draw = useDraw(KNOT_STRAND, drawn, { delay, duration: 0.6 });
+  return <motion.path d={d} style={draw.style} />;
+}
+
+/** A bead that carries a signature round the ring, and a ring that opens where it gets to. */
+function Passing({ id, from, to, reach, onArrival }: Pass & { onArrival: (id: string) => void }) {
+  const progress = useMotionValue(0);
+  useEffect(() => {
+    const running = animate(progress, 1, {
+      // A longer way round takes longer, but not in proportion.
+      duration: Math.min(1.9, 0.7 + (to - from) / Math.PI),
+      delay: 0.25,
+      ease: "easeInOut",
+      onComplete: () => onArrival(id),
+    });
+    return () => running.stop();
+  }, [progress, id, from, to, onArrival]);
+
+  const travelled = useTransform(progress, [0, 0.82], [0, 1]);
+  const cx = useTransform(travelled, (step) => at(from + (to - from) * step).x);
+  const cy = useTransform(travelled, (step) => at(from + (to - from) * step).y);
+  const opacity = useTransform(progress, [0, 0.1, 0.74, 0.82], [0, 1, 1, 0]);
+  const end = at(to);
+  const ripple = useTransform(progress, [0.78, 1], [reach + 3, reach + 14]);
+  const rippleOpacity = useTransform(progress, [0.78, 0.86, 1], [0, 0.7, 0]);
+
+  return (
+    <g pointerEvents="none">
+      <motion.circle
+        cx={end.x}
+        cy={end.y}
+        r={ripple}
+        fill="none"
+        strokeWidth={1.5}
+        className={INK.free.stroke}
+        style={{ opacity: rippleOpacity }}
+      />
+      <motion.circle cx={cx} cy={cy} r={5} strokeWidth={2} className={`fill-card ${INK.free.stroke}`} style={{ opacity }} />
+    </g>
   );
 }
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { INK } from "@/lib/tones";
 import type { CircleView } from "@/lib/types";
-import { CircleGraph, netInWords } from "../circle-graph";
+import { CircleGraph, netInWords, useUntying } from "../circle-graph";
 import { Avatar, Bloom } from "../ui";
 
 const [BAKERY, MILL, CARRIER] = ["panaderia", "molino", "fletes"];
@@ -53,7 +53,8 @@ const CAPTIONS = [
   "Con la última firma, una sola transacción lo liquida.",
   "270 cancelados moviendo solo 20.",
 ];
-const PACE_MS = [2600, 1300, 1300, 1500, 3400];
+// Each signature has time to get to the next party, and the knot to tighten and let go.
+const PACE_MS = [2600, 1600, 2200, 1500, 4400];
 
 /** The idea, playing: a circle of debts gets found, signed and untied, over and over. */
 export function Demonstration() {
@@ -64,21 +65,22 @@ export function Demonstration() {
   }, [step]);
   const circle = moment(step);
   const settled = circle.proposal?.status === "settled";
+  const untying = useUntying(settled);
 
   return (
     <figure className="relative isolate overflow-hidden rounded-3xl border border-hairline bg-canvas-soft">
       <Bloom
-        color={step > 3 ? INK.free.bloom : INK.credit.bloom}
+        color={settled && untying !== "tight" ? INK.free.bloom : INK.credit.bloom}
         className="left-[58%] top-[44%] -z-10 size-[80%] -translate-x-1/2 -translate-y-1/2 opacity-75"
       />
       <Bloom color={INK.debt.bloom} className="left-[4%] top-[52%] -z-10 size-[52%] opacity-55" />
       <Bloom color={INK.neutral.bloom} className="left-[52%] top-[-8%] -z-10 size-[46%] opacity-50" />
       <div className="hidden justify-center px-2 pt-6 sm:flex">
-        <CircleGraph circle={circle} me={BAKERY} nameOf={nameOf} />
+        <CircleGraph circle={circle} me={BAKERY} nameOf={nameOf} untying={untying} />
       </div>
       {/* On a phone the names do not fit beside the nodes, so they go in a list below. */}
       <div className="px-4 pt-4 sm:hidden">
-        <CircleGraph circle={circle} me={BAKERY} nameOf={nameOf} labels={false} />
+        <CircleGraph circle={circle} me={BAKERY} nameOf={nameOf} labels={false} untying={untying} />
         <ul className="mt-1 flex flex-col gap-2.5 pb-4 text-sm">
           {circle.parties.map((party) => (
             <li key={party.address} className="flex items-center gap-3">

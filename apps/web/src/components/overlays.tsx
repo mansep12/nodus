@@ -2,15 +2,14 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { Button } from "./ui";
+import { EASE } from "@/lib/motion";
+import { Button, Tick } from "./ui";
 
 /*
  * What floats over a page: a sheet for a task, a dialog for a question, and
  * toasts for what just happened. They follow DESIGN.md like the rest of
  * `ui.tsx`; screens compose them and never restyle them.
  */
-
-const EASE = [0.2, 0.7, 0.2, 1] as const;
 
 interface SheetProps {
   open: boolean;
@@ -185,19 +184,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 toast.tone === "problem" ? "border-error/20 bg-card text-error-deep" : "border-hairline bg-ink text-white"
               }`}
             >
-              {toast.tone === "done" && (
-                <svg
-                  viewBox="0 0 12 12"
-                  className="size-3.5 shrink-0 stroke-free"
-                  fill="none"
-                  strokeWidth={1.8}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                >
-                  <path d="M2.5 6.3 L5 8.6 L9.5 3.6" />
-                </svg>
-              )}
+              {toast.tone === "done" && <Tick className="size-3.5 shrink-0 stroke-free" />}
               {toast.message}
             </motion.p>
           ))}

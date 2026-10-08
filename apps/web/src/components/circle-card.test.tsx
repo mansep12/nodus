@@ -16,6 +16,7 @@ mock.module("@/lib/api", () => ({
 }));
 const { CircleCard, inWords } = await import("./circle-card");
 const { History } = await import("./history");
+const { ToastProvider } = await import("./overlays");
 
 const [BAKERY, MILL, CARRIER] = ["bakery", "mill", "carrier"];
 const NAMES: Record<string, string> = { bakery: "Panadería Sur", mill: "Molino Andes", carrier: "Fletes Ruta 5" };
@@ -150,6 +151,39 @@ describe("CircleCard", () => {
     expect(container.querySelector("dl")!.textContent).toBe("Dejaste de deber80Dejaron de deberte100Recibiste20");
     expect(screen.getByRole<HTMLAnchorElement>("link", { name: "Ver la transacción en la red" }).href).toEndWith("/tx/abc123");
     expect(screen.queryByRole("button", { name: "Firmar con passkey" })).toBeNull();
+  });
+
+  test("says how far the settlement has got once every party has signed", () => {
+    const sent: CircleView = {
+      ...option("full", [100, 80, 90], [BAKERY, MILL, CARRIER]),
+      proposal: { id: "p1", status: "submitted", expirationLedger: 0 },
+    };
+    const { container } = show(<CircleCard circle={sent} me={MILL} nameOf={nameOf} />);
+
+    const steps = [...container.querySelectorAll("ol li")].map((step) => step.textContent);
+    expect(steps).toEqual(["Firmas completas (listo)", "Enviando a la red…", "Confirmada en la red"]);
+    expect(container.querySelector('[aria-current="step"]')!.textContent).toBe("Enviando a la red…");
+    expect(container.textContent).toContain("Liquidando…");
+    expect(screen.queryByRole("button", { name: "Firmar con passkey" })).toBeNull();
+  });
+
+  test("keeps the receipt of a settled circle at hand where its settlement is known", () => {
+    const settled: CircleView = {
+      ...option("full", [100, 80, 90], [BAKERY, MILL, CARRIER]),
+      proposal: { id: "p1", status: "settled", expirationLedger: 0, txHash: "abc123def456abc123def456" },
+    };
+    const settlement = { txHash: "abc123def456abc123def456", closedAt: "2026-10-05T17:50:51.000Z", circle: settled };
+    // Copying the transaction says so in a toast, as it does in the app.
+    const { container } = show(
+      <ToastProvider>
+        <CircleCard circle={settled} me={MILL} nameOf={nameOf} settlement={settlement} />
+      </ToastProvider>,
+    );
+
+    expect(container.textContent).toContain("Comprobante");
+    expect(container.textContent).toContain("abc123de…23def456");
+    expect(screen.getAllByRole("link", { name: "Ver la transacción en la red" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Descargar" })).toBeDefined();
   });
 
   test("tells a business that is not in the circle that it does not take part", () => {

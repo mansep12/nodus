@@ -1,7 +1,10 @@
 "use client";
 
-import { animate, useMotionValue, useTransform } from "motion/react";
+import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import { useEffect } from "react";
+import { EASE } from "@/lib/motion";
+import { INK } from "@/lib/tones";
+import { Avatar } from "./ui";
 
 interface Options {
   /** Seconds before it starts to draw. Letting go never waits. */
@@ -20,10 +23,16 @@ interface Options {
  */
 export function useDraw(length: number, drawn: boolean, { delay = 0, duration = 0.7 }: Options = {}) {
   const progress = useMotionValue(0);
+  // `MotionConfig` does not reach what is animated by hand, so this asks for itself.
+  const still = useReducedMotion();
   useEffect(() => {
-    const running = animate(progress, drawn ? 1 : 0, { duration, delay: drawn ? delay : 0, ease: [0.2, 0.7, 0.2, 1] });
+    const running = animate(progress, drawn ? 1 : 0, {
+      duration: still ? 0 : duration,
+      delay: drawn && !still ? delay : 0,
+      ease: EASE,
+    });
     return () => running.stop();
-  }, [progress, drawn, delay, duration]);
+  }, [progress, drawn, delay, duration, still]);
 
   return {
     progress,
@@ -34,4 +43,61 @@ export function useDraw(length: number, drawn: boolean, { delay = 0, duration = 
       opacity: useTransform(progress, [0, 0.04, 1], [0, 1, 1]),
     },
   };
+}
+
+/** The cord between the two businesses of a debt, from the edge of one to the arrowhead at the other. */
+const SPAN = { width: 72, height: 24, from: 4, to: 56, head: 61 };
+
+interface DebtCordProps {
+  /** The business that owes, which is the one looking. */
+  debtor: string;
+  creditor: string;
+  accepted: boolean;
+}
+
+/**
+ * A debt of the business looking, drawn as the graphs draw it: dotted while
+ * it is not accepted, and once it is, a cord that says which way the money
+ * is owed.
+ */
+export function DebtCord({ debtor, creditor, accepted }: DebtCordProps) {
+  const draw = useDraw(SPAN.to - SPAN.from, accepted);
+  const arrival = useTransform(draw.progress, [0.7, 1], [0, 1]);
+  const waiting = useTransform(draw.progress, [0, 1], [0.85, 0]);
+  const middle = SPAN.height / 2;
+  return (
+    <span aria-hidden className="flex shrink-0 items-center gap-1">
+      <Avatar name={debtor} tone="ink" />
+      <svg viewBox={`0 0 ${SPAN.width} ${SPAN.height}`} className="h-6 w-[72px]" fill="none">
+        <motion.line
+          x1={SPAN.from}
+          y1={middle}
+          x2={SPAN.width - SPAN.from}
+          y2={middle}
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeDasharray="0.1 8"
+          className={INK.debt.stroke}
+          style={{ opacity: waiting }}
+        />
+        <motion.path
+          d={`M ${SPAN.from} ${middle} L ${SPAN.to} ${middle}`}
+          strokeWidth={3.5}
+          strokeLinecap="round"
+          className={INK.debt.stroke}
+          style={draw.style}
+        />
+        <g transform={`translate(${SPAN.head} ${middle})`}>
+          <motion.path
+            d="M -4 -5 L 5 0 L -4 5 z"
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+            className={`${INK.debt.fill} ${INK.debt.stroke}`}
+            style={{ opacity: arrival, scale: arrival }}
+          />
+        </g>
+      </svg>
+      <Avatar name={creditor} tone="debt" />
+    </span>
+  );
 }

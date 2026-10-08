@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { countPending } from "@/lib/books";
 import { TOKEN_SYMBOL } from "@/lib/config";
 import { agoInWords, shortAddress } from "@/lib/format";
+import { EASE } from "@/lib/motion";
 import { useNodus } from "@/lib/nodus";
 import { CopyButton } from "./fields";
 import { ToastProvider } from "./overlays";
@@ -77,7 +78,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           key={pathname}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.2, 0.7, 0.2, 1] }}
+          transition={{ duration: 0.4, ease: EASE }}
           className="flex-1 pb-20 pt-10 sm:pt-14"
         >
           {children}

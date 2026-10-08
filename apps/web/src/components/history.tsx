@@ -5,13 +5,13 @@ import { EXPLORER_URL } from "@nodus/stellar";
 import { useState } from "react";
 import { get } from "@/lib/api";
 import { partyOf } from "@/lib/books";
-import { TOKEN_SYMBOL } from "@/lib/config";
 import { formatAmount, formatDateTime, percent } from "@/lib/format";
 import { useNodus } from "@/lib/nodus";
 import { INK } from "@/lib/tones";
 import type { SettlementView } from "@/lib/types";
 import { CircleCard } from "./circle-card";
-import { Amount, Button, Card, Empty, Eyebrow, PageHeader, SEGMENTS, segment } from "./ui";
+import { downloadReceipt } from "./receipt";
+import { Amount, Button, Card, Empty, Eyebrow, PageHeader, SEGMENTS, Tick, segment } from "./ui";
 
 const PAGE = 20;
 
@@ -127,56 +127,10 @@ interface Props {
   nameOf: (address: string) => string;
 }
 
-/** The receipt of a settlement for the books: what it meant for the business, with the transaction that proves it. */
-export function receipt(settlement: SettlementView, me: string, nameOf: (address: string) => string): string {
-  const { circle, txHash, closedAt } = settlement;
-  const mine = partyOf(circle, me);
-  const rows: string[][] = [
-    ["Comprobante de compensación Nodus", ""],
-    ["Fecha", formatDateTime(closedAt)],
-    ["Transacción", txHash],
-    ["Verificar en", `${EXPLORER_URL}/tx/${txHash}`],
-    ["Negocios en el círculo", String(circle.parties.length)],
-    ["Deuda cancelada en el círculo", `${formatAmount(circle.cleared)} ${TOKEN_SYMBOL}`],
-    ["Dinero movido en el círculo", `${formatAmount(circle.moved)} ${TOKEN_SYMBOL}`],
-    [],
-    ["Mi negocio", nameOf(me)],
-    ["Dejé de deber", `${formatAmount(mine?.owesLess ?? "0")} ${TOKEN_SYMBOL}`],
-    ["Dejaron de deberme", `${formatAmount(mine?.owedLess ?? "0")} ${TOKEN_SYMBOL}`],
-    [
-      BigInt(mine?.net ?? "0") >= 0n ? "Recibí" : "Pagué",
-      `${formatAmount(BigInt(mine?.net ?? "0") < 0n ? -BigInt(mine!.net) : (mine?.net ?? "0"))} ${TOKEN_SYMBOL}`,
-    ],
-    [],
-    ["Deuda", "Monto cancelado"],
-    ...circle.clearings.map((clearing) => [`N.º ${clearing.id}`, `${formatAmount(clearing.amount)} ${TOKEN_SYMBOL}`]),
-    [],
-    ["Con quién", "Deuda cancelada"],
-    ...circle.edges
-      .filter((edge) => edge.amount !== null)
-      .map((edge) => [
-        edge.from === me ? `Yo le debía a ${nameOf(edge.to)}` : `${nameOf(edge.from)} me debía`,
-        `${formatAmount(edge.amount!)} ${TOKEN_SYMBOL}`,
-      ]),
-  ];
-  const cell = (value: string) => `"${value.replaceAll('"', '""')}"`;
-  return `﻿${rows.map((row) => row.map(cell).join(";")).join("\r\n")}\r\n`;
-}
-
 /** Every settlement so far, each with the transaction that proves it. */
 export function History({ settlements, me, nameOf }: Props) {
   const [open, setOpen] = useState<string | null>(null);
   if (settlements.length === 0) return null;
-
-  const download = (settlement: SettlementView) => {
-    const blob = new Blob([receipt(settlement, me, nameOf)], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `nodus-compensacion-${settlement.txHash.slice(0, 8)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
 
   return (
     <ul className="flex flex-col gap-3">
@@ -188,16 +142,7 @@ export function History({ settlements, me, nameOf }: Props) {
           <li key={txHash} className="overflow-hidden rounded-2xl border border-hairline bg-card">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3 px-6 py-5">
               <span aria-hidden className={`grid size-8 shrink-0 place-items-center rounded-full ${INK.free.softBackground}`}>
-                <svg
-                  viewBox="0 0 12 12"
-                  className={`size-3.5 ${INK.free.stroke}`}
-                  fill="none"
-                  strokeWidth={1.8}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M2.5 6.3 L5 8.6 L9.5 3.6" />
-                </svg>
+                <Tick className={`size-3.5 ${INK.free.stroke}`} />
               </span>
               <div className="min-w-0 flex-1 basis-72">
                 <p className="text-title">
@@ -233,7 +178,7 @@ export function History({ settlements, me, nameOf }: Props) {
               >
                 {txHash.slice(0, 8)}
               </a>
-              <Button variant="quiet" onClick={() => download(settlement)}>
+              <Button variant="quiet" onClick={() => downloadReceipt(settlement, me, nameOf)}>
                 Comprobante
               </Button>
               <Button variant="outline" size="sm" aria-expanded={open === txHash} onClick={() => setOpen(open === txHash ? null : txHash)}>

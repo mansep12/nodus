@@ -1,16 +1,19 @@
 "use client";
 
 import { EXPLORER_URL } from "@nodus/stellar";
+import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { signCircle } from "@/lib/actions";
 import { TOKEN_SYMBOL } from "@/lib/config";
-import { formatAmount } from "@/lib/format";
+import { formatAmount, formatDateTime } from "@/lib/format";
 import { useAction } from "@/lib/hooks";
+import { EASE, UNTYING } from "@/lib/motion";
 import { INK } from "@/lib/tones";
-import type { CircleView } from "@/lib/types";
-import { CircleGraph, netInWords } from "./circle-graph";
+import type { CircleView, SettlementView } from "@/lib/types";
+import { CircleGraph, netInWords, useUntying } from "./circle-graph";
 import { CopyButton } from "./fields";
-import { Amount, Avatar, Bloom, Button, Chip, Problem, SEGMENTS, segment } from "./ui";
+import { downloadReceipt } from "./receipt";
+import { Amount, Avatar, Bloom, Button, Chip, Eyebrow, Problem, SEGMENTS, Steps, segment } from "./ui";
 
 interface Props {
   circle: CircleView;
@@ -26,6 +29,8 @@ interface Props {
   href?: string;
   /** Whether the card was opened from such a link. */
   highlighted?: boolean;
+  /** The settlement that untied the circle, where its receipt should be at hand. */
+  settlement?: SettlementView;
 }
 
 const SECONDS_PER_LEDGER = 5;
@@ -45,10 +50,14 @@ export function inWords(names: string[], unnamed: number): string {
 }
 
 /** A circle of debts: what settling it does, who has signed, and the button to sign. */
-export function CircleCard({ circle, me, nameOf, balance = null, ledger, canSign = true, href, highlighted = false }: Props) {
+export function CircleCard({ circle, me, nameOf, balance = null, ledger, canSign = true, href, highlighted = false, settlement }: Props) {
   const status = circle.proposal?.status;
   const settled = status === "settled";
   const signing = status === "open";
+  const untying = useUntying(settled);
+  // While the knot tightens the card still says it is on its way; what it leaves behind comes as the knot lets go.
+  const sending = status === "submitted" || untying === "tight";
+  const done = settled && !sending;
 
   // Until someone signs, the parties can choose to cancel only what the debts
   // have in common, which needs no money. The first signature settles the choice.
@@ -79,17 +88,26 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger, canSign
       className={`grid overflow-hidden rounded-3xl border bg-card lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)] ${highlighted ? "border-ink shadow-lift" : "border-hairline"}`}
     >
       <div className="relative isolate flex flex-col items-center justify-center overflow-hidden border-b border-hairline bg-canvas-soft px-2 py-4 lg:border-b-0 lg:border-r">
-        <Bloom
-          color={settled ? INK.free.bloom : INK.neutral.bloom}
-          className="left-1/2 top-1/2 -z-10 size-[82%] -translate-x-1/2 -translate-y-1/2 opacity-60"
-        />
-        <Bloom color={settled ? "var(--color-sky)" : INK.debt.bloom} className="left-[18%] top-[62%] -z-10 size-[46%] opacity-50" />
+        {/* The blooms take a breath as the knot lets go. */}
+        <motion.div
+          aria-hidden
+          className="absolute inset-0 -z-10"
+          initial={false}
+          animate={{ scale: untying === "loose" ? [1, 1.2, 1.06] : 1 }}
+          transition={{ duration: untying === "loose" ? UNTYING.loose * 1.4 : 0.6, ease: "easeInOut" }}
+        >
+          <Bloom
+            color={done ? INK.free.bloom : INK.neutral.bloom}
+            className="left-1/2 top-1/2 size-[82%] -translate-x-1/2 -translate-y-1/2 opacity-60"
+          />
+          <Bloom color={done ? "var(--color-sky)" : INK.debt.bloom} className="left-[18%] top-[62%] size-[46%] opacity-50" />
+        </motion.div>
         <div className="hidden w-full justify-center sm:flex">
-          <CircleGraph circle={shown} me={me} nameOf={nameOf} />
+          <CircleGraph circle={shown} me={me} nameOf={nameOf} untying={untying} />
         </div>
         {/* On a phone the names do not fit beside the nodes, so they go in a list below. */}
         <div className="w-full sm:hidden">
-          <CircleGraph circle={shown} me={me} nameOf={nameOf} labels={false} />
+          <CircleGraph circle={shown} me={me} nameOf={nameOf} labels={false} untying={untying} />
           <ul className="mt-1 flex flex-col gap-2.5 px-4 pb-2 text-sm">
             {shown.parties
               .filter((party) => party.known)
@@ -115,9 +133,9 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger, canSign
 
       <div className="flex flex-col gap-6 p-6 sm:p-8">
         <div>
-          {settled ? (
+          {done ? (
             <Chip tone="free">Desanudado</Chip>
-          ) : status === "submitted" ? (
+          ) : sending ? (
             <Chip tone="free">Liquidando…</Chip>
           ) : signing ? (
             <Chip tone="credit">
@@ -187,8 +205,24 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger, canSign
           </dl>
         )}
 
+        <AnimatePresence initial={false}>
+          {done && settlement && (
+            <motion.div
+              key="receipt"
+              className="-mt-6 overflow-hidden"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              transition={{ duration: 0.7, ease: EASE }}
+            >
+              <motion.div initial={{ y: -28 }} animate={{ y: 0 }} transition={{ duration: 0.7, ease: EASE }} className="pt-3">
+                <Receipt settlement={settlement} me={me} nameOf={nameOf} />
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="mt-auto flex flex-col gap-3">
-          {!settled && shown.parties.length > 0 && (
+          {!settled && !sending && shown.parties.length > 0 && (
             <div className="flex items-center gap-3 text-caption text-muted">
               <span className="flex gap-1" aria-hidden>
                 {shown.parties.map((party) => (
@@ -204,17 +238,26 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger, canSign
             </div>
           )}
 
-          {settled ? (
-            <a
-              href={`${EXPLORER_URL}/tx/${shown.proposal?.txHash}`}
-              target="_blank"
-              rel="noreferrer"
-              className={`self-start text-body-sm font-medium underline underline-offset-4 ${INK.free.text}`}
-            >
-              Ver la transacción en la red
-            </a>
-          ) : status === "submitted" ? (
-            <p className="text-sm text-body">Están todas las firmas. Enviando la liquidación a la red…</p>
+          {sending ? (
+            <Steps
+              steps={[
+                { label: "Firmas completas", state: "done" },
+                { label: settled ? "Enviada a la red" : "Enviando a la red…", state: settled ? "done" : "doing" },
+                { label: "Confirmada en la red", state: settled ? "done" : "todo" },
+              ]}
+            />
+          ) : settled ? (
+            // With the receipt at hand, the link is on it.
+            !settlement && (
+              <a
+                href={`${EXPLORER_URL}/tx/${shown.proposal?.txHash}`}
+                target="_blank"
+                rel="noreferrer"
+                className={`self-start text-body-sm font-medium underline underline-offset-4 ${INK.free.text}`}
+              >
+                Ver la transacción en la red
+              </a>
+            )
           ) : !mine ? (
             <p className="text-sm text-body">Tu negocio no participa en este círculo.</p>
           ) : mine.signed ? (
@@ -237,7 +280,7 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger, canSign
             </div>
           )}
 
-          {!settled && status !== "submitted" && href && mine && (
+          {!settled && !sending && href && mine && (
             <p className="flex flex-wrap items-center gap-x-3 text-caption text-muted">
               <span>¿Falta alguien? Mándale el enlace de este círculo.</span>
               <CopyButton text={href} label="Copiar enlace" copied="Enlace copiado" className="!text-caption" />
@@ -254,5 +297,37 @@ export function CircleCard({ circle, me, nameOf, balance = null, ledger, canSign
         </div>
       </div>
     </article>
+  );
+}
+
+/** The proof of a settlement, to keep: when it was, the transaction, and the file for the books. */
+function Receipt({ settlement, me, nameOf }: { settlement: SettlementView; me: string; nameOf: (address: string) => string }) {
+  const { txHash, closedAt } = settlement;
+  return (
+    <div className="rounded-2xl border border-dashed border-hairline-strong bg-canvas-soft px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <Eyebrow size="sm">Comprobante</Eyebrow>
+        <p className="text-caption text-muted">{formatDateTime(closedAt)}</p>
+      </div>
+      <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="font-mono text-caption text-ink" title={txHash}>
+          {txHash.slice(0, 8)}…{txHash.slice(-8)}
+        </span>
+        <CopyButton text={txHash} label="Copiar" copied="Transacción copiada" className="!text-caption" />
+      </p>
+      <p className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+        <a
+          href={`${EXPLORER_URL}/tx/${txHash}`}
+          target="_blank"
+          rel="noreferrer"
+          className={`font-medium underline underline-offset-4 ${INK.free.text}`}
+        >
+          Ver la transacción en la red
+        </a>
+        <Button variant="quiet" onClick={() => downloadReceipt(settlement, me, nameOf)}>
+          Descargar
+        </Button>
+      </p>
+    </div>
   );
 }

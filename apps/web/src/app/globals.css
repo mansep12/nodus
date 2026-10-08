@@ -134,14 +134,22 @@ button:not(:disabled) {
 
 /*
  * A bloom: a soft blur of colour with nothing in it, behind a drawing or a
- * headline. `--bloom` is its colour.
+ * headline. `--bloom` is its colour, declared as one so that a bloom that
+ * changes colour passes through the colours in between.
  */
+@property --bloom {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
 .bloom {
   position: absolute;
   border-radius: 9999px;
   background: radial-gradient(closest-side, var(--bloom) 0%, color-mix(in srgb, var(--bloom) 45%, transparent) 45%, transparent 100%);
   filter: blur(24px);
   pointer-events: none;
+  transition: --bloom 1.2s ease;
 }
 
 @media (prefers-reduced-motion: no-preference) {

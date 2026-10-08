@@ -1,7 +1,9 @@
 /**
  * Made-up states of Nodus, to look at every screen without accounts or a
- * network: a business with a full network, the same one after signing, a
- * business that just joined and one with more relations than fit in a star.
+ * network: a business with a full network, the same one as it signs and
+ * after, a business that just joined and one with more relations than fit in
+ * a star. Going from one of the first three to the next plays what happens
+ * in between, since the screens stay up.
  * They are shaped the way the API answers: only the business's own debts,
  * and the other parties of a circle without a name.
  */
@@ -190,8 +192,16 @@ function dealtWith(obligations: ObligationView[], circles: CircleView[], settlem
 
 const inDays = (days: number) => new Date(Date.UTC(2026, 9, 6 + days, 12, 0));
 
-/** A business in the middle of a busy network. Once `signed`, the circle that waited for it is settled. */
-function full(signed: boolean): StateView {
+/** Where the business is with the circle that waits for it: `before` signing, with the settlement `sent`, or `after` it. */
+type Stage = "before" | "sent" | "after";
+
+/**
+ * A business in the middle of a busy network. Once it signs, the circle
+ * that waited for it is sent and then settled, and the one nobody had
+ * signed carries its signature.
+ */
+function full(stage: Stage): StateView {
+  const signed = stage === "after";
   const { obligations, owe } = ledgerBook();
   const open: ObligationStatus = signed ? "settled" : "accepted";
 
@@ -246,11 +256,23 @@ function full(signed: boolean): StateView {
     ...settle(wide, [me.address, lacteos.address]),
     proposal: { id: "wide", status: "open", expirationLedger: LEDGER + 15_100 },
   };
+  const beingSent: CircleView = {
+    ...settle(long, everyone(long)),
+    proposal: { id: "long", status: "submitted", expirationLedger: LEDGER + 9_400 },
+  };
   const short = [meMolino, molinoFletes, fletesMe];
   const found: CircleView = { ...settle(short, []), netOnly: settle(short, [], 80) };
+  const startedByMe: CircleView = {
+    ...settle(short, [me.address]),
+    proposal: { id: "short", status: "open", expirationLedger: LEDGER + 17_000 },
+  };
   const justSettled = settled(long, hash("7be2"), 1);
 
-  const circles = signed ? [waitingForOthers, found, justSettled.circle] : [waitingForMe, waitingForOthers, found];
+  const circles = {
+    before: [waitingForMe, waitingForOthers, found],
+    sent: [beingSent, waitingForOthers, startedByMe],
+    after: [waitingForOthers, startedByMe, justSettled.circle],
+  }[stage];
   const settlements = [
     ...(signed ? [justSettled] : []),
     settled(past, hash("a91f"), 60 * 26, 80),
@@ -318,13 +340,14 @@ function crowded(): StateView {
 
 /** The same busy network, seen by someone who may only keep the books. */
 function clerk(): StateView {
-  const state = full(false);
+  const state = full("before");
   return { ...state, me: { ...state.me, role: "clerk" } };
 }
 
 export const SCENARIOS = {
-  completa: { label: "Red completa", build: () => full(false) },
-  firmada: { label: "Después de firmar", build: () => full(true) },
+  completa: { label: "Red completa", build: () => full("before") },
+  liquidando: { label: "Liquidando", build: () => full("sent") },
+  firmada: { label: "Después de firmar", build: () => full("after") },
   nueva: { label: "Negocio nuevo", build: empty },
   grande: { label: "Red grande", build: crowded },
   contador: { label: "Como contador", build: clerk },
