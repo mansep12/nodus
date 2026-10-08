@@ -8,3 +8,14 @@ test_snapshots/
 dist/
 *.log
 .claude/
+
+# === Added by security-skill ===
+.env.local
+*.key
+*.pem
+secrets/
+
+# Local assistant tooling, not part of the project
+/.skills/
+/CLAUDE.md
+/memory-security.md
