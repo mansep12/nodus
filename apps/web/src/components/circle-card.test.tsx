@@ -6,7 +6,15 @@ import type { CircleView, SettlementOption } from "@/lib/types";
 
 // Signing needs a passkey and the network; here we only watch what gets signed.
 const signCircle = mock<(circle: CircleView, me: string) => Promise<void>>(async () => {});
-mock.module("@/lib/actions", () => ({ signCircle, explain: (error: unknown) => String(error) }));
+mock.module("@/lib/actions", () => ({
+  registerDebt: async () => 0n,
+  acceptDebt: async () => {},
+  rejectDebt: async () => {},
+  cancelDebt: async () => {},
+  payDebt: async () => {},
+  signCircle,
+  explain: (error: unknown) => String(error),
+}));
 mock.module("@/lib/api", () => ({
   SessionLost: class SessionLost extends Error {},
   fetchState: async () => ({}),

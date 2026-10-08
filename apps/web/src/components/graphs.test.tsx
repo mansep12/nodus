@@ -5,7 +5,15 @@ import { readBooks, readInbox } from "@/lib/books";
 import { FOCUS, SCENARIOS } from "@/lib/fixtures";
 
 // Signing needs a passkey and the network; nothing here signs.
-mock.module("@/lib/actions", () => ({ signCircle: async () => {}, explain: (error: unknown) => String(error) }));
+mock.module("@/lib/actions", () => ({
+  registerDebt: async () => 0n,
+  acceptDebt: async () => {},
+  rejectDebt: async () => {},
+  cancelDebt: async () => {},
+  payDebt: async () => {},
+  signCircle: async () => {},
+  explain: (error: unknown) => String(error),
+}));
 mock.module("@/lib/api", () => ({
   SessionLost: class SessionLost extends Error {},
   fetchState: async () => ({}),

@@ -7,9 +7,11 @@ import type { StateView } from "@/lib/types";
 // Accepting needs a passkey and the network; here it only succeeds.
 const acceptDebt = mock<(id: bigint) => Promise<void>>(async () => {});
 mock.module("@/lib/actions", () => ({
+  registerDebt: async () => 0n,
   acceptDebt,
   rejectDebt: async () => {},
   cancelDebt: async () => {},
+  payDebt: async () => {},
   signCircle: async () => {},
   explain: (error: unknown) => String(error),
 }));

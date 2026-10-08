@@ -2,7 +2,15 @@ import { afterEach, describe, expect, mock, test } from "bun:test";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 // The screen talks to the session only through its props; nothing here creates a passkey or reaches the network.
-mock.module("@/lib/actions", () => ({ signCircle: async () => {}, explain: (error: unknown) => String(error) }));
+mock.module("@/lib/actions", () => ({
+  registerDebt: async () => 0n,
+  acceptDebt: async () => {},
+  rejectDebt: async () => {},
+  cancelDebt: async () => {},
+  payDebt: async () => {},
+  signCircle: async () => {},
+  explain: (error: unknown) => String(error),
+}));
 mock.module("@/lib/session", () => ({ useSession: () => ({}) }));
 const { WelcomeScreen } = await import("./welcome");
 
