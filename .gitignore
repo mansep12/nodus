@@ -19,3 +19,6 @@ secrets/
 /.skills/
 /CLAUDE.md
 /memory-security.md
+
+# Vercel CLI link
+.vercel
