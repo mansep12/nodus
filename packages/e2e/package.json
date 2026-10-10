@@ -9,6 +9,7 @@
     "deploy": "bun run src/deploy.ts",
     "web": "bun run src/web.ts",
     "neighbors": "bun run src/neighbors.ts",
+    "worlds": "bun run src/worlds.ts",
     "inserto": "bun run src/inserto.ts",
     "llave": "bun run src/llave.ts",
     "roles": "bun run src/roles.ts"
