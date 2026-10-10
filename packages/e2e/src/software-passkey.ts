@@ -1,4 +1,12 @@
-import { createHash, generateKeyPairSync, randomBytes, sign, type KeyObject } from "node:crypto";
+import { createHash, createPrivateKey, generateKeyPairSync, randomBytes, sign, type KeyObject } from "node:crypto";
+
+export interface SavedPasskey {
+  credentialId: string;
+  /** PKCS#8 DER, base64. */
+  privateKey: string;
+  /** SPKI DER, base64. */
+  publicKey: string;
+}
 
 type RegistrationArgs = { optionsJSON: { challenge: string } };
 type AuthenticationArgs = { optionsJSON: { challenge: string } };
@@ -14,17 +22,35 @@ const sha256 = (data: Buffer) => createHash("sha256").update(data).digest();
  * on-chain verification and its cost are identical to a real passkey.
  */
 export class SoftwarePasskey {
-  readonly credentialId = b64url(randomBytes(32));
+  readonly credentialId: string;
   private readonly privateKey: KeyObject;
   private readonly publicKeySpki: Buffer;
 
+  /** A new passkey, or the one that `save` wrote down. */
   constructor(
     private readonly rpId: string,
     private readonly origin: string,
+    saved?: SavedPasskey,
   ) {
+    if (saved) {
+      this.credentialId = saved.credentialId;
+      this.privateKey = createPrivateKey({ key: Buffer.from(saved.privateKey, "base64"), format: "der", type: "pkcs8" });
+      this.publicKeySpki = Buffer.from(saved.publicKey, "base64");
+      return;
+    }
     const pair = generateKeyPairSync("ec", { namedCurve: "P-256" });
+    this.credentialId = b64url(randomBytes(32));
     this.privateKey = pair.privateKey;
     this.publicKeySpki = pair.publicKey.export({ type: "spki", format: "der" });
+  }
+
+  /** What it takes to bring this passkey back in another run. Test keys only: never for a real account. */
+  save(): SavedPasskey {
+    return {
+      credentialId: this.credentialId,
+      privateKey: this.privateKey.export({ type: "pkcs8", format: "der" }).toString("base64"),
+      publicKey: this.publicKeySpki.toString("base64"),
+    };
   }
 
   private clientData(type: "webauthn.create" | "webauthn.get", challenge: string): Buffer {
