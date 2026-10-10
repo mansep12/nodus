@@ -18,6 +18,11 @@ export interface AccountProps {
   problem: string | null;
   /** The keys kept in this browser instead of device passkeys, when the app runs that way. */
   testPasskeys: Array<{ credentialId: string; name: string }> | null;
+  /** Enters an example business, made up for trying the app without bringing anyone along. */
+  onTryExample: () => void;
+  tryingExample: boolean;
+  /** Whether this browser was already handed an example business, to go back to it. */
+  keptExample: boolean;
 }
 
 /** Takes the pointer to the name field, so that a link to the form saves a click. */
@@ -26,9 +31,10 @@ export function focusName() {
 }
 
 /** The way in: the form that creates the account of a business, and the button for one that already has it. */
-export function Account({ onCreate, creating, onEnter, entering, problem, testPasskeys }: AccountProps) {
+export function Account(props: AccountProps) {
+  const { onCreate, creating, onEnter, entering, problem, testPasskeys, onTryExample, tryingExample, keptExample } = props;
   const [name, setName] = useState("");
-  const busy = creating || entering !== false;
+  const busy = creating || entering !== false || tryingExample;
 
   return (
     <div className="max-w-xl">
@@ -63,6 +69,17 @@ export function Account({ onCreate, creating, onEnter, entering, problem, testPa
           anotar.
         </p>
       </form>
+
+      <div className="mt-7 flex flex-col items-start gap-3 rounded-2xl border border-hairline bg-card p-5">
+        <p className="text-sm text-body">
+          <span className="font-medium text-ink">¿Vienes a mirar?</span> Entra a un negocio de ejemplo con proveedores, clientes, historial
+          y un círculo listo para firmar. Sin passkey y sin invitar a nadie: los otros negocios responden solos, y todo ocurre de verdad en
+          la red de pruebas de Stellar.
+        </p>
+        <Button variant="outline" busy={tryingExample} disabled={busy} onClick={onTryExample}>
+          {tryingExample ? "Abriendo el negocio…" : keptExample ? "Volver a mi negocio de ejemplo" : "Probar con un negocio de ejemplo"}
+        </Button>
+      </div>
 
       <div id={testPasskeys ? TEST_MODE_ID : undefined} className="mt-7 flex scroll-mt-24 flex-col gap-3 border-t border-hairline pt-5">
         {testPasskeys ? (

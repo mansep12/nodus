@@ -9,6 +9,7 @@ import { SessionLost } from "@/lib/api";
 import { useNodusState } from "@/lib/hooks";
 import { NodusProvider } from "@/lib/nodus";
 import { SessionProvider, useSession } from "@/lib/session";
+import { ExampleNotice } from "./example-notice";
 import { Shell } from "./shell";
 import { Button, Knot, Logo, Problem } from "./ui";
 import { Welcome } from "./welcome";
@@ -37,7 +38,7 @@ function Screen({ children }: { children: React.ReactNode }) {
 
 /** The pages of a business, once its debts have been read. */
 function Business({ children }: { children: React.ReactNode }) {
-  const { leave, expire } = useSession();
+  const { leave, expire, session } = useSession();
   const { data: state, error } = useNodusState();
   useEffect(() => {
     if (error instanceof SessionLost) expire();
@@ -46,6 +47,7 @@ function Business({ children }: { children: React.ReactNode }) {
     return <Waiting>{error && !(error instanceof SessionLost) ? <Problem>{error.message}</Problem> : "Leyendo las deudas…"}</Waiting>;
   return (
     <NodusProvider state={state} leave={leave}>
+      {session?.example && <ExampleNotice />}
       <Shell>{children}</Shell>
     </NodusProvider>
   );

@@ -1,8 +1,24 @@
 import { IndexedDBStorage, SmartAccountKit, type StoredCredential } from "smart-account-kit";
 import type { KitCredential } from "@nodus/api";
 import { ACCOUNT_WASM_HASH, HORIZON_URL, NETWORK_PASSPHRASE, RPC_URL, WEBAUTHN_VERIFIER } from "@nodus/stellar";
+import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 import { SOFTWARE_PASSKEYS } from "./config";
-import { softwareAuthenticator } from "./software-passkey";
+import { isSoftwarePasskey, softwareAuthenticator } from "./software-passkey";
+
+type Authenticator = typeof softwareAuthenticator;
+
+/**
+ * The passkeys of the device, except for the keys this browser keeps itself:
+ * those of automated tests and that of an example business.
+ */
+const authenticator = {
+  startRegistration: (options: Parameters<Authenticator["startRegistration"]>[0]) =>
+    SOFTWARE_PASSKEYS ? softwareAuthenticator.startRegistration(options) : startRegistration(options as never),
+  startAuthentication: (options: Parameters<Authenticator["startAuthentication"]>[0]) =>
+    isSoftwarePasskey(options.optionsJSON.allowCredentials?.[0]?.id)
+      ? softwareAuthenticator.startAuthentication(options)
+      : startAuthentication(options as never),
+};
 
 let kit: SmartAccountKit | undefined;
 let storage: IndexedDBStorage | undefined;
@@ -29,7 +45,7 @@ export function getKit(): SmartAccountKit {
     relayerUrl: `${window.location.origin}/api/relay`,
     // What the kit would ask an indexer, our own API answers: see `seedCredentials`.
     indexerUrl: false,
-    webAuthn: SOFTWARE_PASSKEYS ? softwareAuthenticator : undefined,
+    webAuthn: authenticator as never,
   }));
 }
 
