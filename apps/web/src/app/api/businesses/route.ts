@@ -3,6 +3,7 @@ import { businesses } from "@nodus/db";
 import type { DirectoryMatch } from "@/lib/types";
 import { getDb } from "@/server/db";
 import { respond, UserError } from "@/server/errors";
+import { directoryScope } from "@/server/examples";
 import { account, body, text } from "@/server/input";
 import { LIMITS, clientIp } from "@/server/limits";
 import { requireOwner, requireSession } from "@/server/session";
@@ -60,7 +61,7 @@ export async function GET(request: Request) {
     const rows = await db
       .select()
       .from(businesses)
-      .where(and(ne(businesses.address, session.address), ilike(businesses.name, `%${escaped}%`)))
+      .where(and(ne(businesses.address, session.address), ilike(businesses.name, `%${escaped}%`), await directoryScope(session.address)))
       .orderBy(businesses.name)
       .limit(8);
     return rows.map(({ address, name }) => ({ address, name }));

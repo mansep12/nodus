@@ -37,6 +37,6 @@ export function del<T>(path: string, body?: unknown): Promise<T> {
 }
 
 /** The session the API has for this browser, if any. */
-export function fetchSession(): Promise<{ session: Pick<SessionView, "address" | "name" | "role" | "credentialId"> | null }> {
+export function fetchSession(): Promise<{ session: Pick<SessionView, "address" | "name" | "role" | "credentialId" | "example"> | null }> {
   return request("/api/session");
 }

@@ -1,7 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
-import { and, count, desc, eq, gt, inArray, or, sql } from "drizzle-orm";
-import { authorizations, businesses, events, notes, obligations, proposals } from "@nodus/db";
+import { and, count, desc, eq, gt, inArray, notInArray, or, sql } from "drizzle-orm";
+import { authorizations, businesses, events, exampleActors, notes, obligations, proposals } from "@nodus/db";
 import { effects, type Clearing, type Obligation } from "@nodus/solver";
 import { NODUS_CONTRACT, TOKEN_CONTRACT } from "@/lib/config";
 import type { BusinessView, CircleView, NetworkStats, PartyView, SettlementOption, SettlementView, StateView } from "@/lib/types";
@@ -249,7 +249,11 @@ async function namesOf(db: Db, addresses: string[]): Promise<BusinessView[]> {
 /** What the whole network has done, without saying who. */
 async function networkStats(db: Db): Promise<NetworkStats> {
   const [[people], [settled]] = await Promise.all([
-    db.select({ businesses: count() }).from(businesses),
+    // The made-up businesses of the example worlds are not counted among those of the network.
+    db
+      .select({ businesses: count() })
+      .from(businesses)
+      .where(notInArray(businesses.address, db.select({ address: exampleActors.address }).from(exampleActors))),
     db
       .select({
         settlements: count(),

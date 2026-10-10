@@ -167,8 +167,18 @@ export interface SessionView {
   name: string | null;
   role: Role;
   credentialId: string;
+  /** Whether it is an example business: made up for trying the app, with neighbours the server answers for. */
+  example: boolean;
   /** Every passkey of the account, to let the kit connect with the one that signed. */
   credentials: KitCredential[];
+}
+
+/** What a browser needs to enter as an example business: its test passkey, to keep in its own storage. */
+export interface ExampleEntry {
+  address: string;
+  name: string;
+  credentialId: string;
+  privateKey: JsonWebKey;
 }
 
 export interface InvitationView {
