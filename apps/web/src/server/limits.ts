@@ -3,13 +3,27 @@
  * of the app. Each key counts within a fixed window.
  */
 import "server-only";
+import { timingSafeEqual } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { rateLimits } from "@nodus/db";
 import { getDb } from "./db";
 import { RateLimited } from "./errors";
 
-/** Where a request comes from, as the platform in front reports it. */
-export function clientIp(request: Request): string {
+/**
+ * Whether a request comes from the installation's own scripts (the one that
+ * makes the example businesses, say): they carry the secret of the scheduler.
+ */
+export function isOperator(request: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  const given = request.headers.get("x-nodus-operator");
+  if (!secret || !given) return false;
+  const [a, b] = [Buffer.from(given), Buffer.from(secret)];
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Where a request comes from, as the platform in front reports it; null for the installation's own scripts, which are not counted. */
+export function clientIp(request: Request): string | null {
+  if (isOperator(request)) return null;
   const forwarded = request.headers.get("x-forwarded-for");
   return (forwarded?.split(",")[0] ?? request.headers.get("x-real-ip") ?? "local").trim();
 }
@@ -41,18 +55,24 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
+/** A limit on what one address of the internet may do. */
+const perIp = (prefix: string, limit: number, windowMs: number) => (ip: string | null) =>
+  ip === null ? Promise.resolve() : consume(`${prefix}${ip}`, limit, windowMs);
+
 /** The limits of the API, in one place. */
 export const LIMITS = {
   /** Test tokens: a few times per account and per address per day. */
   faucetPerAddress: (address: string) => consume(`faucet:${address}`, 3, DAY),
-  faucetPerIp: (ip: string) => consume(`faucet:ip:${ip}`, 20, DAY),
+  faucetPerIp: perIp("faucet:ip:", 20, DAY),
   /** Accounts the relayer pays for: creating them is the costly call. */
-  accountsPerIp: (ip: string) => consume(`relay:create:${ip}`, 30, HOUR),
-  relayPerIp: (ip: string) => consume(`relay:${ip}`, 120, HOUR),
+  accountsPerIp: perIp("relay:create:", 30, HOUR),
+  relayPerIp: perIp("relay:", 120, HOUR),
   /** Passkey challenges and sessions. */
-  sessionPerIp: (ip: string) => consume(`session:${ip}`, 60, HOUR),
+  sessionPerIp: perIp("session:", 60, HOUR),
   /** Searches of the directory. */
-  directoryPerIp: (ip: string) => consume(`directory:${ip}`, 120, HOUR),
+  directoryPerIp: perIp("directory:", 120, HOUR),
+  /** Example businesses handed out: each one takes minutes of the network to make. */
+  examplesPerIp: perIp("example:", 6, DAY),
   /** Invitations and other writes that need a session. */
   writesPerAddress: (address: string) => consume(`writes:${address}`, 120, HOUR),
 };

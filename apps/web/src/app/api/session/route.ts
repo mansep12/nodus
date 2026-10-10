@@ -6,6 +6,7 @@ import { accountRule, isOwnerRule } from "@/server/chain";
 import { credentialsOf, findCredential, kitRecord } from "@/server/credentials";
 import { getDb } from "@/server/db";
 import { respond, UserError } from "@/server/errors";
+import { isExampleBusiness } from "@/server/examples";
 import { body, relyingParty, text } from "@/server/input";
 import { LIMITS, clientIp } from "@/server/limits";
 import { consumeChallenge, endSession, readSession, startSession, type Role } from "@/server/session";
@@ -17,7 +18,15 @@ export async function GET() {
     if (!session) return { session: null };
     const db = await getDb();
     const [business] = await db.select().from(businesses).where(eq(businesses.address, session.address));
-    return { session: { address: session.address, name: business?.name ?? null, role: session.role, credentialId: session.credentialId } };
+    return {
+      session: {
+        address: session.address,
+        name: business?.name ?? null,
+        role: session.role,
+        credentialId: session.credentialId,
+        example: await isExampleBusiness(session.address),
+      },
+    };
   });
 }
 
@@ -60,6 +69,7 @@ export async function POST(request: Request) {
       name: business?.name ?? null,
       role,
       credentialId: credential.credentialId,
+      example: await isExampleBusiness(credential.address),
       credentials: (await credentialsOf(credential.address)).map(kitRecord),
     };
   });

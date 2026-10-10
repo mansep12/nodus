@@ -4,7 +4,7 @@
  * which of its rules, so that the API can answer for that account only.
  */
 import "server-only";
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { cookies } from "next/headers";
@@ -48,6 +48,11 @@ function secret(): Buffer {
     writeFileSync(file, randomBytes(32).toString("base64url"), { mode: 0o600 });
   }
   return (cachedSecret = Buffer.from(readFileSync(file, "utf8").trim(), "utf8"));
+}
+
+/** A key for something other than the cookies, derived from the same secret so that the installation keeps one. */
+export function derivedKey(purpose: string): Buffer {
+  return Buffer.from(hkdfSync("sha256", secret(), Buffer.alloc(0), purpose, 32));
 }
 
 const sign = (body: string) => createHmac("sha256", secret()).update(body).digest("base64url");
