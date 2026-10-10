@@ -1,0 +1,335 @@
+{
+  "$comment": "Qué dice la voz al llegar a cada paso de /pitch. anclar.ts busca cada frase en palabras.json (lo que alinear.py oyó en voz.mp3) y pone el paso `adelanto` segundos antes de su primera palabra; con `despues`, un respiro después de la última. Los `fijos` no tienen voz y van a la hora que dicen. `t` es la hora estimada: es la que usa el video sin voz y la que da forma a lo que falte entre dos anclas encontradas. Las frases de un bloque se escriben desde lo que se grabó, no desde el guion: las de los bloques que todavía no tienen voz (la demo) son las del ejemplo del guion. Una frase no empieza con «y» si justo antes se dice una cifra como 53, que también tiene una, ni con una palabra que la frase anterior dejó sin usar.",
+  "adelanto": 0.18,
+  "respiro": 0.4,
+  "cola": 3,
+  "fin": 215.5,
+  "fijos": [
+    {
+      "escena": "problema",
+      "paso": 0,
+      "t": 0,
+      "nota": "Portada: el nudo, Nodus y la frase. La voz empieza encima."
+    }
+  ],
+  "anclas": [
+    {
+      "escena": "problema",
+      "paso": 1,
+      "frase": "puede cerrar aunque todavía tenga dinero",
+      "t": 1.3
+    },
+    {
+      "escena": "problema",
+      "paso": 2,
+      "frase": "La ley establece un plazo de",
+      "t": 4.3
+    },
+    {
+      "escena": "problema",
+      "paso": 3,
+      "frase": "treinta días para pagar las facturas",
+      "t": 5.6
+    },
+    {
+      "escena": "problema",
+      "paso": 4,
+      "frase": "pero el promedio real llega a",
+      "t": 7.6
+    },
+    {
+      "escena": "problema",
+      "paso": 5,
+      "frase": "entre pymes",
+      "t": 10.3
+    },
+    {
+      "escena": "problema",
+      "paso": 6,
+      "frase": "este número sube a",
+      "t": 11.8
+    },
+    {
+      "escena": "problema",
+      "paso": 7,
+      "frase": "Muchas veces el atraso viene en cadena",
+      "t": 14.3
+    },
+    {
+      "escena": "problema",
+      "paso": 8,
+      "frase": "quien te debe también está esperando",
+      "t": 17
+    },
+    {
+      "escena": "nudo",
+      "paso": 0,
+      "frase": "Ahora voy a dar un ejemplo sencillo",
+      "t": 20.5
+    },
+    {
+      "escena": "nudo",
+      "paso": 1,
+      "frase": "una panadería le debe cien al molino",
+      "t": 23.4
+    },
+    {
+      "escena": "nudo",
+      "paso": 2,
+      "frase": "El molino le debe ochenta al transportista",
+      "t": 25.8
+    },
+    {
+      "escena": "nudo",
+      "paso": 3,
+      "frase": "el transportista le debe noventa",
+      "t": 28.3
+    },
+    {
+      "escena": "nudo",
+      "paso": 4,
+      "frase": "Los tres tienen dinero por cobrar",
+      "t": 31.4
+    },
+    {
+      "escena": "idea",
+      "paso": 0,
+      "frase": "Pero si miramos las tres deudas juntas",
+      "t": 37.9
+    },
+    {
+      "escena": "idea",
+      "paso": 1,
+      "frase": "vemos que forman un círculo",
+      "t": 40.1
+    },
+    {
+      "escena": "idea",
+      "paso": 2,
+      "frase": "Para eso hicimos Nodus",
+      "t": 42.1
+    },
+    {
+      "escena": "idea",
+      "paso": 3,
+      "frase": "permite compensar esas deudas",
+      "t": 43.6
+    },
+    {
+      "escena": "idea",
+      "paso": 4,
+      "frase": "En este ejemplo hay doscientos setenta",
+      "t": 47.5
+    },
+    {
+      "escena": "idea",
+      "paso": 5,
+      "frase": "pero basta con mover solo",
+      "t": 50.5
+    },
+    {
+      "escena": "idea",
+      "paso": 6,
+      "frase": "La panadería y el transportista pagan",
+      "t": 52.5
+    },
+    {
+      "escena": "idea",
+      "paso": 7,
+      "frase": "el molino recibe",
+      "t": 55.8
+    },
+    {
+      "escena": "idea",
+      "paso": 8,
+      "frase": "Así las tres deudas quedan saldadas",
+      "t": 57.6
+    },
+    {
+      "escena": "caja",
+      "paso": 0,
+      "frase": "Sobre este mismo ejemplo",
+      "t": 61.04
+    },
+    {
+      "escena": "caja",
+      "paso": 1,
+      "frase": "de este modo se descuenta",
+      "t": 68.1
+    },
+    {
+      "escena": "caja",
+      "paso": 2,
+      "frase": "sin necesidad de mover",
+      "t": 72.08
+    },
+    {
+      "escena": "caja",
+      "paso": 3,
+      "frase": "La panadería queda debiendo",
+      "t": 74.72
+    },
+    {
+      "escena": "caja",
+      "paso": 4,
+      "frase": "el transportista",
+      "t": 77.3
+    },
+    {
+      "escena": "caja",
+      "paso": 5,
+      "frase": "Pero ya pasa de",
+      "t": 79.16
+    },
+    {
+      "escena": "caja",
+      "paso": 6,
+      "frase": "solamente treinta",
+      "t": 82.36
+    },
+    {
+      "escena": "red",
+      "paso": 0,
+      "frase": "esto pasa con muchos negocios",
+      "t": 85.7
+    },
+    {
+      "escena": "red",
+      "paso": 1,
+      "frase": "Un negocio le debe a otros",
+      "t": 87.3
+    },
+    {
+      "escena": "red",
+      "paso": 2,
+      "frase": "otro le debe a él",
+      "t": 88.8
+    },
+    {
+      "escena": "red",
+      "paso": 3,
+      "frase": "a su vez también",
+      "t": 90.1
+    },
+    {
+      "escena": "red",
+      "paso": 4,
+      "frase": "pendientes con otros negocios",
+      "t": 91.3
+    },
+    {
+      "escena": "red",
+      "paso": 5,
+      "frase": "así se va formando una red enorme",
+      "t": 93.2
+    },
+    {
+      "escena": "red",
+      "paso": 6,
+      "frase": "cada uno solo puede ver",
+      "t": 94.8
+    },
+    {
+      "escena": "red",
+      "paso": 7,
+      "frase": "nadie ve cómo están todos conectados",
+      "t": 97.6
+    },
+    {
+      "escena": "red",
+      "paso": 8,
+      "frase": "Nodus sí",
+      "t": 99.8
+    },
+    {
+      "escena": "red",
+      "paso": 9,
+      "frase": "puede encontrar esos círculos",
+      "t": 101.9
+    },
+    {
+      "escena": "demo",
+      "paso": 0,
+      "frase": "Esta es la aplicación",
+      "t": 104.5
+    },
+    {
+      "escena": "veinte",
+      "paso": 0,
+      "frase": "Bueno",
+      "t": 156.5
+    },
+    {
+      "escena": "veinte",
+      "paso": 1,
+      "frase": "Esto ya lo probé con",
+      "t": 160.5
+    },
+    {
+      "escena": "veinte",
+      "paso": 2,
+      "frase": "una sola transacción",
+      "t": 163.5
+    },
+    {
+      "escena": "veinte",
+      "paso": 3,
+      "frase": "Y ocupó solo un tercio",
+      "t": 166.0
+    },
+    {
+      "escena": "stellar",
+      "paso": 0,
+      "frase": "Compensar deuda no es nada nuevo",
+      "t": 169.5
+    },
+    {
+      "escena": "stellar",
+      "paso": 1,
+      "frase": "Por dar un ejemplo",
+      "t": 172.5
+    },
+    {
+      "escena": "stellar",
+      "paso": 2,
+      "frase": "La diferencia con Stellar",
+      "t": 179.5
+    },
+    {
+      "escena": "stellar",
+      "paso": 3,
+      "frase": "Cada negocio firma su parte",
+      "t": 182.5
+    },
+    {
+      "escena": "stellar",
+      "paso": 4,
+      "frase": "la red lo ejecuta todo junto",
+      "t": 185.5
+    },
+    {
+      "escena": "stellar",
+      "paso": 5,
+      "frase": "Nadie tiene tu plata",
+      "t": 191.5
+    },
+    {
+      "escena": "stellar",
+      "paso": 6,
+      "frase": "el recibo es público",
+      "t": 192.5
+    },
+    {
+      "escena": "cierre",
+      "paso": 0,
+      "frase": "Esto es Nodus",
+      "t": 193.5
+    },
+    {
+      "escena": "cierre",
+      "paso": 1,
+      "frase": "desanuda las deudas",
+      "t": 204.5
+    }
+  ]
+}
