@@ -62,7 +62,17 @@ export function WelcomePreview() {
   };
   return (
     <MotionConfig reducedMotion="user">
-      <WelcomeScreen onCreate={pretend} creating={busy} onEnter={pretend} entering={false} problem={null} testPasskeys={null} />
+      <WelcomeScreen
+        onCreate={pretend}
+        creating={busy}
+        onEnter={pretend}
+        entering={false}
+        problem={null}
+        testPasskeys={null}
+        onTryExample={pretend}
+        tryingExample={false}
+        keptExample={false}
+      />
       <aside className="fixed inset-x-0 bottom-4 z-10 flex justify-center px-4">
         <Link
           href="/muestra"

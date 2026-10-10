@@ -5,7 +5,7 @@ import { useState } from "react";
 import { explain } from "@/lib/actions";
 import { SOFTWARE_PASSKEYS } from "@/lib/config";
 import { useSession } from "@/lib/session";
-import { softwarePasskeys } from "@/lib/software-passkey";
+import { examplePasskey, softwarePasskeys } from "@/lib/software-passkey";
 import { Benefits } from "./landing/benefits";
 import { Closing } from "./landing/closing";
 import { Demonstration } from "./landing/demonstration";
@@ -22,10 +22,12 @@ export function Welcome() {
   const session = useSession();
   const create = useMutation({ mutationFn: (name: string) => session.create(name) });
   const enter = useMutation({ mutationFn: (credentialId?: string) => session.enter(credentialId) });
-  const problem = create.error ?? enter.error;
+  const tryExample = useMutation({ mutationFn: () => session.tryExample() });
+  const problem = create.error ?? enter.error ?? tryExample.error;
 
   // This screen only renders in the browser, once the session is known, so storage is there.
   const [testPasskeys] = useState(() => (SOFTWARE_PASSKEYS ? softwarePasskeys() : null));
+  const [keptExample] = useState(() => examplePasskey() !== undefined);
 
   return (
     <WelcomeScreen
@@ -35,6 +37,9 @@ export function Welcome() {
       entering={enter.isPending ? (enter.variables ?? true) : false}
       problem={problem ? explain(problem) : null}
       testPasskeys={testPasskeys}
+      onTryExample={tryExample.mutate}
+      tryingExample={tryExample.isPending}
+      keptExample={keptExample}
     />
   );
 }
@@ -48,6 +53,11 @@ interface ScreenProps {
   problem: string | null;
   /** The keys kept in this browser instead of device passkeys, when the app runs that way. */
   testPasskeys: Array<{ credentialId: string; name: string }> | null;
+  /** Enters an example business, made up for trying the app without bringing anyone along. */
+  onTryExample: () => void;
+  tryingExample: boolean;
+  /** Whether this browser was already handed an example business, to go back to it. */
+  keptExample: boolean;
 }
 
 /**
@@ -56,13 +66,13 @@ interface ScreenProps {
  * and a last call. The sections live in `./landing`.
  */
 export function WelcomeScreen(props: ScreenProps) {
-  const { onEnter, entering, creating, testPasskeys } = props;
+  const { onEnter, entering, creating, testPasskeys, tryingExample } = props;
   return (
     <div className="flex min-h-screen flex-col">
       <LandingNav
         onEnter={() => onEnter(undefined)}
         entering={entering === true}
-        busy={creating || entering !== false}
+        busy={creating || entering !== false || tryingExample}
         testMode={testPasskeys !== null}
       />
       <main className="flex-1">

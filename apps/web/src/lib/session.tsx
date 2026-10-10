@@ -4,10 +4,16 @@ import { startAuthentication } from "@simplewebauthn/browser";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { configureSigner } from "./actions";
 import { del, fetchSession, get, post } from "./api";
-import { SOFTWARE_PASSKEYS } from "./config";
 import { describeCredential, getKit, seedCredentials } from "./kit";
-import { chooseSoftwarePasskey, softwareAuthenticator } from "./software-passkey";
-import type { KitCredential, Role, SessionView } from "./types";
+import {
+  chooseSoftwarePasskey,
+  examplePasskey,
+  forgetExamplePasskey,
+  isSoftwarePasskey,
+  keepExamplePasskey,
+  softwareAuthenticator,
+} from "./software-passkey";
+import type { ExampleEntry, KitCredential, Role, SessionView } from "./types";
 
 export interface Session {
   /** The smart account of the business. */
@@ -16,6 +22,8 @@ export interface Session {
   credentialId: string;
   role: Role;
   name: string | null;
+  /** An example business, handed out to try the app: its neighbours answer by themselves. */
+  example: boolean;
 }
 
 interface SessionContextValue {
@@ -31,6 +39,8 @@ interface SessionContextValue {
   create: (name: string) => Promise<void>;
   /** Enters with a passkey this device already has, or any passkey of a known account. */
   enter: (credentialId?: string) => Promise<void>;
+  /** Enters an example business: the one this browser was handed before, or a new one. */
+  tryExample: () => Promise<void>;
   /** Opens the API session again with the passkey the kit already trusts. */
   confirm: () => Promise<void>;
   /** The API no longer honours the session: ask for the passkey again. */
@@ -42,7 +52,7 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 
 /** A fresh assertion by the passkey over a challenge from our API. */
 async function assert(challenge: string, rpId: string, credentialId?: string) {
-  if (SOFTWARE_PASSKEYS) {
+  if (isSoftwarePasskey(credentialId)) {
     if (credentialId) chooseSoftwarePasskey(credentialId);
     return softwareAuthenticator.startAuthentication({
       optionsJSON: { challenge, allowCredentials: credentialId ? [{ id: credentialId }] : undefined },
@@ -92,11 +102,12 @@ async function publishCredential(credentialId: string, label: string) {
   }).catch(() => undefined);
 }
 
-const toSession = (view: Pick<SessionView, "address" | "credentialId" | "role" | "name">): Session => ({
+const toSession = (view: Pick<SessionView, "address" | "credentialId" | "role" | "name" | "example">): Session => ({
   address: view.address,
   credentialId: view.credentialId,
   role: view.role,
   name: view.name,
+  example: view.example,
 });
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
@@ -112,7 +123,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           .catch(() => null),
         fetchSession().catch(() => ({ session: null })),
       ]);
-      if (api.session && kit && api.session.address === kit.contractId) {
+      if (api.session?.example && !isSoftwarePasskey(api.session.credentialId)) {
+        // An example business whose key this browser no longer keeps cannot sign anything: back to the welcome.
+        await Promise.all([getKit().disconnect(), del("/api/session").catch(() => undefined)]);
+      } else if (api.session && kit && api.session.address === kit.contractId) {
         setSession(toSession(api.session));
         void publishCredential(kit.credentialId, "Este dispositivo");
       } else if (api.session) {
@@ -147,6 +161,23 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setSession(toSession(view));
   }, []);
 
+  const tryExample = useCallback(async () => {
+    const claim = async () => {
+      const entry = await post<ExampleEntry>("/api/example", {});
+      keepExamplePasskey(entry);
+      return entry.credentialId;
+    };
+    const kept = examplePasskey();
+    try {
+      await enter(kept?.credentialId ?? (await claim()));
+    } catch (error) {
+      if (!kept) throw error;
+      // The one it had may be gone with the installation's data: a new one takes its place.
+      forgetExamplePasskey();
+      await enter(await claim());
+    }
+  }, [enter]);
+
   const create = useCallback(
     async (name: string) => {
       const wallet = await getKit().createWallet("Nodus", name, { autoSubmit: true });
@@ -177,8 +208,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ ready, session, confirming, create, enter, confirm, expire, leave }),
-    [ready, session, confirming, create, enter, confirm, expire, leave],
+    () => ({ ready, session, confirming, create, enter, tryExample, confirm, expire, leave }),
+    [ready, session, confirming, create, enter, tryExample, confirm, expire, leave],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

@@ -15,7 +15,17 @@ mock.module("@/lib/session", () => ({ useSession: () => ({}) }));
 const { WelcomeScreen } = await import("./welcome");
 
 const noop = () => {};
-const handlers = { onCreate: noop, creating: false, onEnter: noop, entering: false as const, problem: null, testPasskeys: null };
+const handlers = {
+  onCreate: noop,
+  creating: false,
+  onEnter: noop,
+  entering: false as const,
+  problem: null,
+  testPasskeys: null,
+  onTryExample: noop,
+  tryingExample: false,
+  keptExample: false,
+};
 
 afterEach(cleanup);
 
@@ -57,6 +67,23 @@ describe("WelcomeScreen", () => {
     expect(screen.getByRole<HTMLButtonElement>("button", { name: "Creando la cuenta…" }).disabled).toBe(true);
     expect(screen.getByRole<HTMLButtonElement>("button", { name: "Entrar con mi passkey" }).disabled).toBe(true);
     expect(screen.getByRole<HTMLButtonElement>("button", { name: "Entrar" }).disabled).toBe(true);
+  });
+
+  test("offers an example business to whoever came to look, and the way back to it", () => {
+    const onTryExample = mock(() => {});
+    render(<WelcomeScreen {...handlers} onTryExample={onTryExample} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Probar con un negocio de ejemplo" }));
+    expect(onTryExample).toHaveBeenCalledTimes(1);
+
+    cleanup();
+    render(<WelcomeScreen {...handlers} keptExample />);
+    expect(screen.getByRole("button", { name: "Volver a mi negocio de ejemplo" })).toBeDefined();
+
+    cleanup();
+    render(<WelcomeScreen {...handlers} tryingExample />);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Abriendo el negocio…" }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Crear cuenta con passkey" }).disabled).toBe(true);
   });
 
   test("in test mode, offers the keys kept in the browser instead of the device passkey", () => {

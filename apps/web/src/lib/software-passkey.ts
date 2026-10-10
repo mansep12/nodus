@@ -1,17 +1,22 @@
 /**
- * Stands in for the device's passkeys with keys kept in the browser's storage,
- * so that the app can be driven by automated tests. It answers with the same
- * WebAuthn responses a real authenticator gives, so everything downstream,
- * including the on-chain verification, is the real thing.
+ * Stands in for the device's passkeys with keys kept in the browser's storage.
+ * It answers with the same WebAuthn responses a real authenticator gives, so
+ * everything downstream, including the on-chain verification, is the real thing.
  *
- * Not for real use: these keys are not protected by the device.
+ * Two things use it: automated tests, which create accounts this way outside
+ * production, and the example business a visitor is handed to try the app,
+ * whose key comes from the server. Not for a real account: these keys are not
+ * protected by the device.
  */
+import { SOFTWARE_PASSKEYS } from "./config";
 
 const STORAGE_KEY = "nodus.software-passkeys";
 
 interface StoredPasskey {
   name: string;
   privateKey: JsonWebKey;
+  /** The passkey of an example business, handed out by the server. */
+  example?: boolean;
 }
 
 const encoder = new TextEncoder();
@@ -34,7 +39,36 @@ function concat(...parts: Uint8Array[]): Uint8Array<ArrayBuffer> {
 const sha256 = async (data: Uint8Array<ArrayBuffer>) => new Uint8Array(await crypto.subtle.digest("SHA-256", data));
 
 function load(): Record<string, StoredPasskey> {
-  return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
+  } catch {
+    // Storage may be closed to the page, or hold something else: then there are no keys here.
+    return {};
+  }
+}
+
+/** Whether the passkey that answers is one of these, and not one of the device. */
+export function isSoftwarePasskey(credentialId: string | undefined): boolean {
+  return SOFTWARE_PASSKEYS || (credentialId !== undefined && credentialId in load());
+}
+
+/** The example business this browser was handed, if it still keeps its passkey. */
+export function examplePasskey(): { credentialId: string; name: string } | undefined {
+  const kept = Object.entries(load()).find(([, passkey]) => passkey.example);
+  return kept ? { credentialId: kept[0], name: kept[1].name } : undefined;
+}
+
+/** Keeps the passkey of the example business the server handed over, in place of any earlier one. */
+export function keepExamplePasskey(entry: { credentialId: string; name: string; privateKey: JsonWebKey }) {
+  const passkeys = Object.fromEntries(Object.entries(load()).filter(([, passkey]) => !passkey.example));
+  passkeys[entry.credentialId] = { name: entry.name, privateKey: entry.privateKey, example: true };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(passkeys));
+}
+
+/** Lets go of the example business, when the installation no longer knows it. */
+export function forgetExamplePasskey() {
+  const passkeys = Object.fromEntries(Object.entries(load()).filter(([, passkey]) => !passkey.example));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(passkeys));
 }
 
 /** The passkeys kept in this browser, to choose which business to enter as. */
