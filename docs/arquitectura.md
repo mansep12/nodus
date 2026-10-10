@@ -201,6 +201,17 @@ Para quitar una passkey, el dueño borra su regla en la cadena (`kit.rules.remov
 - **Red.** `network` suma, sin decir quién, cuántos negocios tienen nombre, cuántas liquidaciones ha habido y cuánto se canceló y se movió en total.
 - **Otros.** El saldo del token (leído directo del almacenamiento del token), si la instalación entrega fondos de prueba (`faucet`) y la llave pública para avisos (`push`).
 
+## Negocios de ejemplo
+
+Quien entra a mirar no tiene a quién deberle ni quién le deba, y un negocio solo no cierra un círculo. Para eso existen los **mundos de ejemplo** (`apps/web/src/server/examples.ts`): redes de negocios inventados, hechas de antemano, que se entregan una por visitante.
+
+- **Qué es un mundo.** Una panadería con proveedores, clientes, dos círculos ya liquidados, un pago directo y un círculo de tres listo para firmar con el molino y el transportista. Son 11 cuentas inteligentes de verdad en testnet, con sus deudas en el contrato.
+- **Cómo se hacen.** `bun run example:worlds <cuántos> [url]` crea cada mundo por la API, como lo harían los negocios desde su navegador, y al terminar entrega sus llaves a `POST /api/example/worlds`. Un mundo toma unos minutos. El script se identifica con `CRON_SECRET` en la cabecera `x-nodus-operator`: con ella no le cuentan los límites por IP y es lo que la ruta exige.
+- **Dónde quedan.** `example_worlds` (cuándo se entregó cada uno) y `example_actors` (cada cuenta, su papel y su passkey cifrada con AES-256-GCM, con una llave derivada de `NODUS_SESSION_SECRET`).
+- **Cómo se entra.** `POST /api/example` toma el mundo sin entregar más antiguo y devuelve la passkey de su panadería. El navegador la guarda en su almacenamiento y entra con ella como con cualquier passkey: mismo desafío, misma aserción, misma verificación. Cuando no queda ninguno sin entregar, se vuelve a dar el que se entregó hace más tiempo.
+- **Quién responde por los vecinos.** El servidor. Cada vez que el visitante lee su estado (`GET /api/state`) o firma, `tendExampleWorld` corre después de la respuesta: acepta lo que el visitante registró contra un vecino, firma los círculos que alguien de ese mundo empezó a firmar y, cuando no queda nada pendiente, deja listo otro círculo (una factura nueva del molino para aceptar y lo que el molino le debe al transportista). Firma con `signAsPasskey` (`packages/stellar`), que produce la misma firma WebAuthn que verifica la cuenta en la cadena, y cada paso se reserva en `rate_limits` para que dos instancias no lo den dos veces.
+- **Qué no se mezcla.** Los vecinos solo aceptan deudas de la panadería de su mundo y solo firman círculos cuyas partes son todas de su mundo. El directorio le muestra a un negocio de ejemplo solo los de su mundo, y a los demás ninguno de los inventados; tampoco cuentan en los negocios de la red.
+
 ## Sincronización y mantenimiento
 
 ```text
@@ -242,7 +253,7 @@ afterChange(): cierra propuestas vencidas, busca círculos y manda avisos
 | `OZ_CHANNELS_API_KEY`                   | `/api/relay`, liquidaciones, `keep_alive`, faucet y los scripts de `packages/e2e`.                         | `curl https://channels.openzeppelin.com/testnet/gen`; `deploy:testnet` la copia desde `packages/e2e/.env` |
 | `DATABASE_URL`                          | Servidor, `bun run db:migrate`, `e2e:netting`. Obligatoria en Vercel.                                      | La cadena de conexión de Supabase (sirve el pooler: la app no usa sentencias preparadas)                  |
 | `NODUS_SESSION_SECRET`                  | Firma de las cookies. Obligatoria en producción; en desarrollo se guarda una en `.data/`.                  | `deploy:testnet` la genera; o `openssl rand -base64 32`                                                   |
-| `CRON_SECRET`                           | `/api/sync`. Obligatoria en producción para que el mantenimiento corra.                                    | Cualquier texto largo al azar                                                                             |
+| `CRON_SECRET`                           | `/api/sync` y el script que hace los mundos de ejemplo. Obligatoria en producción.                         | `deploy:testnet` la genera; o cualquier texto largo al azar                                               |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Avisos.                                                                                                    | `deploy:testnet` las genera; o `bunx web-push generate-vapid-keys`                                        |
 | `VAPID_SUBJECT`                         | Avisos. Por omisión `mailto:hola@nodus.cl`.                                                                | Un `mailto:` o una URL de contacto                                                                        |
 | `NEXT_PUBLIC_APP_URL`                   | Enlaces absolutos de las tarjetas para compartir. Si falta, usa `VERCEL_PROJECT_PRODUCTION_URL`.           | La URL pública                                                                                            |
@@ -271,6 +282,7 @@ Next.js fija las `NEXT_PUBLIC_*` en el código del navegador al compilar: cambia
 | `bun run e2e:netting [--relayer]`                     | Deudas, indexador, buscador y liquidación en testnet.                                                                   |
 | `bun run e2e:web [url]`                               | Recorre una instancia de la app por su API, con llaves de software.                                                     |
 | `bun run demo:neighbors <dirección> [url]`            | Le da a un negocio dos vecinos que maneja un script, para cerrar un círculo sin jugar todos los papeles.                |
+| `CRON_SECRET=… bun run example:worlds <n> [url]`      | Hace `n` mundos de ejemplo en una instancia y se los entrega (ver [negocios de ejemplo](#negocios-de-ejemplo)).         |
 
 La CI (`.github/workflows/ci.yml`) corre `format:check`, `lint`, `typecheck`, `test` y el build de la app con direcciones de contrato de relleno, y aparte compila los contratos y corre sus pruebas.
 
@@ -312,6 +324,7 @@ Testnet se reinicia de vez en cuando y se lleva contratos y cuentas. Después ha
 | `relayPerIp`       | `relay:<ip>`        | 120 por hora | `POST /api/relay`                                                                                                                                 |
 | `sessionPerIp`     | `session:<ip>`      | 60 por hora  | `GET /api/session/challenge`, `POST /api/session`, `POST /api/credentials`, `POST /api/invitations/<id>`                                          |
 | `directoryPerIp`   | `directory:<ip>`    | 120 por hora | `GET /api/businesses`                                                                                                                             |
+| `examplesPerIp`    | `example:<ip>`      | 6 por día    | `POST /api/example`                                                                                                                               |
 | `writesPerAddress` | `writes:<cuenta>`   | 120 por hora | `POST /api/businesses`, `POST /api/invitations`, `PATCH /api/invitations/<id>`, `DELETE /api/team`, `POST /api/notes`, `POST /api/push/subscribe` |
 
 La IP es el primer valor de `x-forwarded-for` (o `x-real-ip`). Sin límite propio quedan las lecturas con sesión (`/api/state`, `/api/settlements`, `/api/team`, `GET /api/credentials`), `GET /api/invitations/<id>`, `DELETE /api/invitations/<id>`, `DELETE /api/push/subscribe`, `/api/health`, `/api/sync` (protegida por su token) y las propuestas y firmas (`/api/proposals`, `/api/proposals/<id>/signatures`).
