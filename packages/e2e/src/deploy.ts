@@ -41,6 +41,8 @@ const values: Record<string, string> = {
 if (process.env.OZ_CHANNELS_API_KEY) values.OZ_CHANNELS_API_KEY = process.env.OZ_CHANNELS_API_KEY;
 // Secrets the app needs that do not depend on the deployment are kept once generated.
 if (!existing.NODUS_SESSION_SECRET) values.NODUS_SESSION_SECRET = randomBytes(32).toString("base64url");
+// What the scheduler and the installation's own scripts identify themselves with.
+if (!existing.CRON_SECRET) values.CRON_SECRET = randomBytes(32).toString("base64url");
 if (!existing.VAPID_PUBLIC_KEY || !existing.VAPID_PRIVATE_KEY) {
   const keys = vapidKeys();
   values.VAPID_PUBLIC_KEY = keys.publicKey;
