@@ -262,3 +262,41 @@ export const authorizations = pgTable(
   },
   (table) => [primaryKey({ columns: [table.proposalId, table.address] })],
 );
+
+/**
+ * A network of businesses made up for someone who wants to try the app
+ * without bringing anyone along: an example business with its history, and
+ * the neighbours it deals with. Each visitor is handed one of their own.
+ */
+export const exampleWorlds = pgTable(
+  "example_worlds",
+  {
+    id: text("id").primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** When it was handed to a visitor; null while it waits for one. */
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  },
+  (table) => [index("example_worlds_by_claim").on(table.claimedAt)],
+);
+
+/**
+ * The accounts of an example world, with the passkey the installation holds
+ * for each: the visitor enters as `business`, and the server answers for
+ * every `neighbor`. Test keys of made-up businesses, and still kept encrypted.
+ */
+export const exampleActors = pgTable(
+  "example_actors",
+  {
+    address: text("address").primaryKey(),
+    worldId: text("world_id")
+      .notNull()
+      .references(() => exampleWorlds.id, { onDelete: "cascade" }),
+    /** `business` for the one the visitor enters as, `neighbor` for the rest. */
+    role: text("role").notNull(),
+    /** What the neighbour does in the story: `mill`, `carrier`, or null for the others. */
+    part: text("part"),
+    /** The passkey, as JSON encrypted with a key derived from the session secret. */
+    sealedPasskey: text("sealed_passkey").notNull(),
+  },
+  (table) => [index("example_actors_by_world").on(table.worldId)],
+);
