@@ -58,7 +58,8 @@ export function TeamView() {
       const signer = createWebAuthnSigner(
         WEBAUTHN_VERIFIER,
         Buffer.from(invitation.publicKey, "hex"),
-        Buffer.from(invitation.credentialId, "base64url"),
+        // The Buffer of the browser does not read base64url, only the plain alphabet.
+        Buffer.from(invitation.credentialId.replaceAll("-", "+").replaceAll("_", "/"), "base64"),
       );
       const policies = new Map<string, unknown>();
       let context = createDefaultContext();
