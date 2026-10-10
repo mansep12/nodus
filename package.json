@@ -23,11 +23,17 @@
     "e2e:roles": "bun run --filter @nodus/e2e roles",
     "lint": "eslint packages && bun run --filter @nodus/web lint",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "pitch:juntar": "bun pitch/voz/juntar.ts",
+    "pitch:anclar": "bun pitch/voz/anclar.ts",
+    "pitch:render": "bun pitch/render.ts",
+    "pitch:sonido": "python3 pitch/sonido.py",
+    "pitch:mezclar": "bun pitch/mezclar.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
     "eslint": "^9.39.0",
+    "playwright-core": "^1.64.0",
     "prettier": "^3.6.0",
     "typescript-eslint": "^8.46.0"
   }

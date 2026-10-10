@@ -22,3 +22,17 @@ secrets/
 
 # Vercel CLI link
 .vercel
+
+# El video: lo que generan los scripts de pitch/ y la voz, que no va al repo ni a la app publicada
+/pitch/out/
+/pitch/voz/*.mp3
+/pitch/voz/palabras.json
+/apps/web/public/pitch/
+
+# Carpeta de trabajo temporal
+/tmp/
+/apps/web/tmp/
+
+# Notas de investigación para el video, de trabajo
+/reports/
+/research_notes/
