@@ -23,7 +23,8 @@ mock.module("@/server/chain", () => ({
   isSmartAccount: async () => false,
 }));
 mock.module("@/server/faucet", () => ({ FAUCET_AMOUNT: 0n, hasFaucet: () => false, mintTestTokens: async () => "" }));
-const { addWorld, claimWorld, directoryScope, isExampleBusiness, worldCounts } = (await import("./examples")) as typeof Examples;
+const { addWorld, claimWorld, directoryScope, forgetUnfinished, isExampleBusiness, worldCounts } =
+  (await import("./examples")) as typeof Examples;
 
 let made = 0;
 /** An account with a passkey the app already knows, as the script that makes the worlds leaves it. */
@@ -70,6 +71,21 @@ describe("addWorld", () => {
 
     await expect(addWorld({ business, neighbors: [stranger] })).rejects.toThrow(/no responde a la passkey/);
     expect(await worldCounts()).toEqual({ waiting: 0, claimed: 0 });
+  });
+});
+
+describe("forgetUnfinished", () => {
+  test("takes the accounts of a world that was never finished out of the directory, and no others", async () => {
+    const { business } = await world();
+    const leftBehind = await account("Molino Andes");
+    await db.insert(businesses).values({ address: "CREALMILL", name: "Molino de verdad" });
+
+    expect(await forgetUnfinished([leftBehind.address, business.address])).toEqual({ forgotten: 1 });
+
+    const names = (await db.select().from(businesses)).map((row) => row.address);
+    expect(names).not.toContain(leftBehind.address);
+    expect(names).toContain(business.address);
+    expect(names).toContain("CREALMILL");
   });
 });
 

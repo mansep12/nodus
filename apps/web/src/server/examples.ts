@@ -184,6 +184,26 @@ export async function addWorld(input: { business: ActorInput; neighbors: ActorIn
   return { id };
 }
 
+/**
+ * Takes out of the directory the accounts of a world that its script could not
+ * finish, so that nobody finds businesses nobody answers for. Accounts of a
+ * world that was taken in are left alone. Says how many names were removed.
+ */
+export async function forgetUnfinished(addresses: string[]): Promise<{ forgotten: number }> {
+  if (addresses.length === 0) return { forgotten: 0 };
+  const db = await getDb();
+  const forgotten = await db
+    .delete(businesses)
+    .where(
+      and(
+        inArray(businesses.address, addresses),
+        notInArray(businesses.address, db.select({ address: exampleActors.address }).from(exampleActors)),
+      ),
+    )
+    .returning({ address: businesses.address });
+  return { forgotten: forgotten.length };
+}
+
 /** How many worlds wait for a visitor and how many were handed out. */
 export async function worldCounts(): Promise<{ waiting: number; claimed: number }> {
   const db = await getDb();
@@ -269,15 +289,23 @@ const accept = async (debtor: Actor, id: bigint) => send(debtor, await nodus.acc
 
 /** The creditor registers that `debtor` owes it `amount`, with the document behind it. */
 async function register(creditor: Actor, debtor: string, amount: bigint, note?: string, due?: Date): Promise<bigint> {
-  const draft = await nodus.register({
-    creditor: creditor.address,
-    debtor,
-    amount,
-    reference: note ? createHash("sha256").update(note).digest() : undefined,
-    due: due ? BigInt(Math.floor(due.getTime() / 1000)) : undefined,
-  });
+  const draw = () =>
+    nodus.register({
+      creditor: creditor.address,
+      debtor,
+      amount,
+      reference: note ? createHash("sha256").update(note).digest() : undefined,
+      due: due ? BigInt(Math.floor(due.getTime() / 1000)) : undefined,
+    });
+  let draft = await draw();
+  try {
+    await send(creditor, draft);
+  } catch {
+    // A debt takes the next number: when someone else registers one in the same moment, the number this one was drawn up with is taken.
+    draft = await draw();
+    await send(creditor, draft);
+  }
   const id = draft.result.unwrap();
-  await send(creditor, draft);
   if (note) {
     const db = await getDb();
     await db.insert(notes).values({ contractId: NODUS_CONTRACT, obligationId: id, text: note }).onConflictDoNothing();

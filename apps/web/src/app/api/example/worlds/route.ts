@@ -1,6 +1,6 @@
 import { NETWORK_PASSPHRASE } from "@nodus/stellar";
 import { AuthError, respond, UserError } from "@/server/errors";
-import { addWorld, worldCounts, type ActorInput } from "@/server/examples";
+import { addWorld, forgetUnfinished, worldCounts, type ActorInput } from "@/server/examples";
 import { account, body, optionalText, text } from "@/server/input";
 import { isOperator } from "@/server/limits";
 
@@ -27,6 +27,16 @@ export async function POST(request: Request) {
       throw new UserError("Faltan los vecinos del negocio de ejemplo.");
     }
     return addWorld({ business: actor(input.business), neighbors: input.neighbors.map(actor) });
+  });
+}
+
+/** Takes out of the directory the accounts of a world its script could not finish. */
+export async function DELETE(request: Request) {
+  return respond(async () => {
+    requireOperator(request);
+    const input = await body(request);
+    if (!Array.isArray(input.addresses) || input.addresses.length > 500) throw new UserError("Faltan las cuentas.");
+    return forgetUnfinished(input.addresses.map(account));
   });
 }
 

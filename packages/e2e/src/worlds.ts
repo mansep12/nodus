@@ -12,8 +12,9 @@
  * the app, which from then on answers for the neighbours and gives the bakery
  * to whoever asks to try. The secret is the one of the installation's
  * scheduler: it lets the script through the rate limits and is what the app
- * asks for before taking a world in. A world that fails halfway is left
- * behind and another one is started.
+ * asks for before taking a world in. A step that fails is tried again; a
+ * world that still fails halfway is left behind, its accounts are taken out
+ * of the directory and another one is started.
  */
 import type { CircleView } from "@nodus/api";
 import { connectApp, type Business, type DebtDetails } from "./app.ts";
@@ -36,7 +37,7 @@ globalThis.fetch = ((input: Parameters<typeof fetch>[0], init?: RequestInit) => 
   return plainFetch(input, { ...init, headers });
 }) as typeof fetch;
 
-const { api, readState, join, keep, owe, pay, sign } = await connectApp(app);
+const { api, readState, join, keep, register, accept, pay, sign } = await connectApp(app);
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60_000);
@@ -67,24 +68,57 @@ async function untie(parties: Business[], how: "full" | "netOnly") {
   log(`Settled a circle of ${parties.length}: ${units(BigInt(option.cleared))} cancelled, ${units(BigInt(option.moved))} moved`);
 }
 
-async function makeWorld() {
-  // One at a time: the relayer creates each account, and several at once trip over each other.
-  const bakery = await join("Panadería Sur");
-  const mill = await join("Molino Andes");
-  const carrier = await join("Fletes Ruta 5");
-  const dairy = await join("Distribuidora Lácteos");
-  const packaging = await join("Envases Sur");
-  const farm = await join("Agrícola Maipo");
-  const cafe = await join("Cafetería Central");
-  const hotel = await join("Hotel Andino");
-  const restaurant = await join("Restaurante Del Valle");
-  const school = await join("Colegio Los Aromos");
-  const minimarket = await join("Minimarket Don Pepe");
+/**
+ * Does a step again when it fails: a debt takes the next number of the
+ * contract, so one registered in the same moment as someone else's is refused
+ * by the network, and the network itself drops a transaction now and then.
+ */
+async function insist<T>(what: string, step: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await step();
+    } catch (error) {
+      if (attempt >= 4) throw error;
+      log(`${what} failed (${error instanceof Error ? error.message.slice(0, 120) : error}); trying again.`);
+      await sleep(4_000 * attempt);
+    }
+  }
+}
 
-  const debt = (debtor: Business, creditor: Business, amount: bigint, details?: DebtDetails) =>
-    owe(debtor, creditor, amount * UNIT, details);
+async function makeWorld(made: Business[]) {
+  // One at a time: the relayer creates each account, and several at once trip over each other.
+  const open = async (name: string) => {
+    const business = await join(name);
+    made.push(business);
+    return business;
+  };
+  const bakery = await open("Panadería Sur");
+  const mill = await open("Molino Andes");
+  const carrier = await open("Fletes Ruta 5");
+  const dairy = await open("Distribuidora Lácteos");
+  const packaging = await open("Envases Sur");
+  const farm = await open("Agrícola Maipo");
+  const cafe = await open("Cafetería Central");
+  const hotel = await open("Hotel Andino");
+  const restaurant = await open("Restaurante Del Valle");
+  const school = await open("Colegio Los Aromos");
+  const minimarket = await open("Minimarket Don Pepe");
+
+  /** The debtor owes the creditor `amount`, registered and accepted. */
+  async function debt(debtor: Business, creditor: Business, amount: bigint, details?: DebtDetails): Promise<string> {
+    const id = await insist(`Registering what ${debtor.name} owes ${creditor.name}`, () =>
+      register(debtor.address, creditor, amount * UNIT, details),
+    );
+    await insist(`Accepting debt ${id}`, async () => {
+      // An attempt that seemed to fail may have gone through.
+      const known = (await readState(debtor)).obligations.find((obligation) => obligation.id === id.toString());
+      if (known?.status !== "accepted") await accept(debtor, id);
+    });
+    log(`${debtor.name} owes ${creditor.name} ${amount} (obligation ${id})`);
+    return id.toString();
+  }
   // Whoever pays a net, or a debt directly, needs test tokens to do it with.
-  for (const payer of [bakery, carrier, hotel, restaurant]) await api("/api/faucet", {}, payer);
+  for (const payer of [bakery, carrier, hotel, restaurant]) await insist(`Funding ${payer.name}`, () => api("/api/faucet", {}, payer));
 
   // A circle of three settled in full: the bakery receives a net of 35 and the hotel pays 50.
   await debt(bakery, farm, 75n);
@@ -102,7 +136,7 @@ async function makeWorld() {
   // What its clients owe it, one of them late and partly paid.
   await debt(hotel, bakery, 180n, { note: "Factura 1187", due: inDays(12) });
   const overdue = await debt(restaurant, bakery, 200n, { note: "Factura 1179", due: inDays(-3) });
-  await pay(restaurant, BigInt(overdue), 60n * UNIT);
+  await insist("The restaurant's payment", () => pay(restaurant, BigInt(overdue), 60n * UNIT));
   await debt(school, bakery, 95n, { note: "Factura 1196", due: inDays(8) });
   await debt(minimarket, bakery, 45n, { due: inDays(20) });
 
@@ -130,13 +164,16 @@ let made = 0;
 let failedInARow = 0;
 while (made < count) {
   const started = Date.now();
+  const accounts: Business[] = [];
   try {
-    const world = await makeWorld();
+    const world = await makeWorld(accounts);
     made++;
     failedInARow = 0;
     log(`World ${made} of ${count} is ready in ${Math.round((Date.now() - started) / 1000)} s: ${world.id} (${world.bakery})`);
   } catch (error) {
     log(`A world failed and is left behind: ${error instanceof Error ? error.message : error}`);
+    // Nobody answers for its businesses: they should not be found in the directory.
+    await api("/api/example/worlds", { addresses: accounts.map((account) => account.address) }, null, "DELETE").catch(() => undefined);
     if (++failedInARow >= 3) throw new Error("Three worlds failed in a row; stopping.");
   }
 }
