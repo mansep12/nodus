@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { createHash, generateKeyPairSync, sign, type KeyObject } from "node:crypto";
+import { createHash, createPublicKey, generateKeyPairSync, sign, type KeyObject } from "node:crypto";
 import { Address, Keypair, StrKey, buildAuthorizationEntryPreimage, hash, nativeToScVal, xdr } from "@stellar/stellar-sdk";
-import { NETWORK_PASSPHRASE, WEBAUTHN_VERIFIER, addressCredentials, isSignedByPasskey, type PasskeySigner } from "./index.ts";
+import {
+  NETWORK_PASSPHRASE,
+  WEBAUTHN_VERIFIER,
+  addressCredentials,
+  isSignedByPasskey,
+  signAsPasskey,
+  type PasskeySigner,
+} from "./index.ts";
 
 const ACCOUNT = StrKey.encodeContract(Buffer.alloc(32, 7));
 const CONTRACT = StrKey.encodeContract(Buffer.alloc(32, 9));
@@ -156,5 +163,42 @@ describe("isSignedByPasskey", () => {
     addressCredentials(entry).signature(nativeToScVal([{ public_key: classic.rawPublicKey(), signature: classic.sign(Buffer.alloc(32)) }]));
 
     expect(await check(entry)).toBe(false);
+  });
+});
+
+describe("signAsPasskey", () => {
+  const held = (privateKey: KeyObject, credentialId: Buffer) => ({
+    credentialId: credentialId.toString("base64url"),
+    privateKey: privateKey.export({ type: "pkcs8", format: "der" }).toString("base64"),
+    publicKey: createPublicKey(privateKey).export({ type: "spki", format: "der" }).toString("base64"),
+  });
+  const where = { networkPassphrase: NETWORK_PASSPHRASE, verifier: WEBAUTHN_VERIFIER, origin: "https://nodus.example" };
+
+  test("signs what the account's passkey would", async () => {
+    const { privateKey, signer } = passkey();
+    const signed = await signAsPasskey(unsignedEntry(), held(privateKey, Buffer.from("credential id")), {
+      ...where,
+      expiration: 6_000_000,
+    });
+    expect(addressCredentials(signed).signatureExpirationLedger()).toBe(6_000_000);
+    expect(await isSignedByPasskey(signed, signer, NETWORK_PASSPHRASE)).toBe(true);
+  });
+
+  test("signs under the rule it is asked to", async () => {
+    const { privateKey, signer } = passkey();
+    const signed = await signAsPasskey(unsignedEntry(), held(privateKey, Buffer.from("credential id")), {
+      ...where,
+      expiration: 6_000_000,
+      ruleId: 3,
+    });
+    expect(await isSignedByPasskey(signed, signer, NETWORK_PASSPHRASE, 3)).toBe(true);
+    expect(await isSignedByPasskey(signed, signer, NETWORK_PASSPHRASE)).toBe(false);
+  });
+
+  test("leaves the entry it was given unsigned", async () => {
+    const { privateKey } = passkey();
+    const entry = unsignedEntry();
+    await signAsPasskey(entry, held(privateKey, Buffer.from("credential id")), { ...where, expiration: 6_000_000 });
+    expect(addressCredentials(entry).signature().switch().name).toBe("scvVoid");
   });
 });

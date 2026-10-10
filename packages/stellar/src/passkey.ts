@@ -1,5 +1,6 @@
 import { Address, buildAuthorizationEntryPreimage, hash, xdr } from "@stellar/stellar-sdk";
-import { addressCredentials, defaultRuleIds } from "./auth.ts";
+import { addressCredentials, defaultRuleIds, ruleIdsUnder } from "./auth.ts";
+import { rawPublicKey } from "./webauthn.ts";
 
 /** The passkey a smart account answers to. */
 export interface PasskeySigner {
@@ -111,4 +112,90 @@ export async function isSignedByPasskey(
   } catch {
     return false;
   }
+}
+
+/** A passkey whose private key a program holds, instead of a device. Test keys only. */
+export interface HeldPasskey {
+  /** The WebAuthn credential id, base64url. */
+  credentialId: string;
+  /** PKCS#8 DER, base64. */
+  privateKey: string;
+  /** SPKI DER or the raw uncompressed point, base64. */
+  publicKey: string;
+}
+
+const CURVE_ORDER = 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551n;
+
+const entryOf = (key: string, val: xdr.ScVal) => new xdr.ScMapEntry({ key: xdr.ScVal.scvSymbol(key), val });
+
+/**
+ * Signs `entry` as the smart account's passkey would, under its rule
+ * `ruleId` and good until `expiration`: the counterpart of
+ * `isSignedByPasskey`, for accounts a program answers for. `origin` is where
+ * a browser would have signed from; the account's verifier does not check it.
+ */
+export async function signAsPasskey(
+  entry: xdr.SorobanAuthorizationEntry,
+  passkey: HeldPasskey,
+  {
+    expiration,
+    networkPassphrase,
+    verifier,
+    origin,
+    ruleId = 0,
+  }: {
+    expiration: number;
+    networkPassphrase: string;
+    verifier: string;
+    origin: string;
+    ruleId?: number;
+  },
+): Promise<xdr.SorobanAuthorizationEntry> {
+  const signed = xdr.SorobanAuthorizationEntry.fromXDR(entry.toXDR());
+  const credentials = addressCredentials(signed);
+  credentials.signatureExpirationLedger(expiration);
+
+  const ruleIds = xdr.ScVal.scvVec(ruleIdsUnder(signed, ruleId).map((id) => xdr.ScVal.scvU32(id)));
+  const preimage = buildAuthorizationEntryPreimage(xdr.SorobanAuthorizationEntry.fromXDR(signed.toXDR()), expiration, networkPassphrase);
+  const digest = hash(Buffer.concat([hash(preimage.toXDR()), ruleIds.toXDR()]));
+
+  const clientData = Buffer.from(JSON.stringify({ type: "webauthn.get", challenge: base64url(digest), origin, crossOrigin: false }));
+  const authenticatorData = Buffer.concat([
+    hash(Buffer.from(new URL(origin).hostname)),
+    Buffer.from([USER_PRESENT_AND_VERIFIED, 0, 0, 0, 0]),
+  ]);
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    new Uint8Array(Buffer.from(passkey.privateKey, "base64")),
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["sign"],
+  );
+  const raw = Buffer.from(
+    await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new Uint8Array(Buffer.concat([authenticatorData, hash(clientData)]))),
+  );
+  // The network only takes the lower of the two values of `s` that sign the same thing.
+  const s = BigInt(`0x${raw.subarray(32).toString("hex")}`);
+  const low = s > HALF_CURVE_ORDER ? CURVE_ORDER - s : s;
+  const signature = Buffer.concat([raw.subarray(0, 32), Buffer.from(low.toString(16).padStart(64, "0"), "hex")]);
+
+  const assertion = xdr.ScVal.scvMap([
+    entryOf("authenticator_data", xdr.ScVal.scvBytes(authenticatorData)),
+    entryOf("client_data", xdr.ScVal.scvBytes(clientData)),
+    entryOf("signature", xdr.ScVal.scvBytes(signature)),
+  ]);
+  const signer = xdr.ScVal.scvVec([
+    xdr.ScVal.scvSymbol("External"),
+    Address.fromString(verifier).toScVal(),
+    xdr.ScVal.scvBytes(
+      Buffer.concat([rawPublicKey(Buffer.from(passkey.publicKey, "base64")), Buffer.from(passkey.credentialId, "base64url")]),
+    ),
+  ]);
+  credentials.signature(
+    xdr.ScVal.scvMap([
+      entryOf("context_rule_ids", ruleIds),
+      entryOf("signers", xdr.ScVal.scvMap([new xdr.ScMapEntry({ key: signer, val: xdr.ScVal.scvBytes(assertion.toXDR()) })])),
+    ]),
+  );
+  return signed;
 }

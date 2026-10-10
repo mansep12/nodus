@@ -2,7 +2,7 @@
 import { Networks } from "@stellar/stellar-sdk";
 
 export { addressCredentials, defaultRuleIds, entryAddress, ruleIdsUnder } from "./auth.ts";
-export { isSignedByPasskey, signedRuleId, type PasskeySigner } from "./passkey.ts";
+export { isSignedByPasskey, signAsPasskey, signedRuleId, type HeldPasskey, type PasskeySigner } from "./passkey.ts";
 export { rawPublicKey, verifyAssertion, type AssertionExpectations, type AssertionJSON } from "./webauthn.ts";
 
 export const RPC_URL = "https://soroban-testnet.stellar.org";
