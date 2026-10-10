@@ -21,7 +21,8 @@ Qué cuida la red, qué cuida la aplicación y qué no cuida nadie. Nada de esto
 - **Notas.** El texto de una referencia se guarda solo si lo escribe una parte de la deuda y su SHA-256 es el que está en la cadena.
 - **Límites.** Contadores por IP y por cuenta guardados en Postgres, compartidos por todas las instancias (ver [límites de abuso](arquitectura.md#límites-de-abuso)).
 - **Mantenimiento.** En producción `/api/sync` exige `CRON_SECRET`.
-- **Llaves.** El servidor no guarda ninguna llave de los negocios. Las que tiene son la del relayer, la del emisor del token de prueba, la de las cookies y la de los avisos.
+- **Llaves.** El servidor no guarda ninguna llave de los negocios reales. Las que tiene son la del relayer, la del emisor del token de prueba, la de las cookies, la de los avisos y las de los negocios de ejemplo (ver abajo).
+- **Negocios de ejemplo.** Son cuentas inventadas para probar la app sin invitar a nadie ([arquitectura](arquitectura.md#negocios-de-ejemplo)). El servidor guarda sus passkeys cifradas y firma por los vecinos; la de la panadería se le entrega a quien pide probar y vive en el almacenamiento de su navegador, sin la protección del dispositivo. Por eso solo existen en la red de pruebas (la ruta que las recibe lo exige), el servidor solo firma por cuentas marcadas como de ejemplo y dentro de su propio mundo, y una cuenta creada desde la app sigue naciendo siempre con una passkey del dispositivo.
 
 ## Qué no protege
 
