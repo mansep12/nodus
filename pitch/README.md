@@ -14,6 +14,7 @@ Todo lo que tiene que ver con el video de 3 minutos para Find Your Way vive aqu�
 | `demo.sh`                        | La app de la demo: una copia local con su base, los vecinos y la red de la panadería.                                         |
 | `grabar.ts`, `demo-montar.ts`    | La demo grabada sola (un navegador sin ventana hace el recorrido) y cortada a su voz.                                         |
 | `final.ts`                       | El video entero: A, la demo y B en un archivo, con una sola cama de principio a fin.                                          |
+| `subtitulos.ts`                  | Los subtítulos en inglés quemados sobre el video entero, y un SRT en inglés y otro en español.                                |
 | `docs/descripcion.md`            | El texto del formulario de entrega.                                                                                           |
 
 ## Las escenas
@@ -149,3 +150,9 @@ bun pitch/final.ts          # pitch/out/nodus-final.mp4 (2:49,8)
 ```
 
 `final.ts` pone A y B a 1,1× con el tono conservado y la demo (`pitch/out/demo-sin-voz.mp4`, de `demo-montar.ts`) entre las dos, con un fundido de 0,4 s en cada unión. El sonido se mezcla de nuevo desde las pistas, con la receta de `mezclar.ts`: cada voz subida a −16 LUFS, los efectos de A y de B a su velocidad, y una cama única que no se corta entre pieza y pieza y resuelve en el cierre. Cómo se graba la demo: [produccion.md](produccion.md#grabar-la-demo-sola).
+
+```bash
+bun pitch/subtitulos.ts --video pitch/out/nodus-final-v2.mp4 --salida pitch/out/nodus-final-v2-en.mp4
+```
+
+`subtitulos.ts` quema los subtítulos en inglés y deja `pitch/out/subtitulos/en.srt` y `es.srt`. Las líneas están en el script, con los segundos de cada voz (de `out/*.palabras.json`); los lleva al video entero con la misma cuenta de `final.ts`, así que si cambia la duración de una pieza no hay que tocarlas. Avisa de las líneas de más de 42 caracteres o más de 20 por segundo. El video se codifica otra vez (CRF 17); el audio se copia.

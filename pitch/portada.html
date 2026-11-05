@@ -1,0 +1,190 @@
+<!doctype html>
+<!--
+  La portada del video para YouTube (1280×720), con los colores, las letras y
+  el dibujo del video. Se saca con Chromium:
+
+    chrome --headless --hide-scrollbars --window-size=1280,720 \
+      --force-device-scale-factor=2 --virtual-time-budget=8000 \
+      --screenshot=pitch/out/portada.png pitch/portada.html
+
+  A escala 2 sale de 2560×1440; YouTube la pide de 1280×720 o más, en 16:9 y
+  bajo 2 MB (la reducida es pitch/out/portada.jpg).
+-->
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300;1,6..72,400&display=block"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --canvas: #f5f5f5;
+        --ink: #0c0a09;
+        --body: #4e4e4e;
+        --muted: #716b63;
+        --free: #197a55;
+        --free-deep: #135f43;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      body {
+        width: 1280px;
+        height: 720px;
+        overflow: hidden;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: Inter, sans-serif;
+        position: relative;
+      }
+      .bloom {
+        position: absolute;
+        border-radius: 50%;
+      }
+      .grain {
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(rgba(12, 10, 9, 0.1) 1px, transparent 1.4px);
+        background-size: 34px 34px;
+        opacity: 0.5;
+      }
+      .copy {
+        position: absolute;
+        left: 76px;
+        top: 0;
+        bottom: 0;
+        width: 560px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-family: Newsreader, serif;
+        font-size: 58px;
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
+      .logo svg {
+        width: 72px;
+        height: 72px;
+      }
+      h1 {
+        margin-top: 44px;
+        font-family: Newsreader, serif;
+        font-weight: 300;
+        font-size: 96px;
+        line-height: 0.98;
+        letter-spacing: -0.035em;
+      }
+      h1 em {
+        font-weight: 300;
+      }
+      .pill {
+        margin-top: 44px;
+        align-self: flex-start;
+        background: var(--ink);
+        color: #fff;
+        border-radius: 999px;
+        padding: 16px 30px;
+        font-size: 29px;
+        font-weight: 500;
+        letter-spacing: 0;
+      }
+      .pill b {
+        font-weight: 600;
+        color: #a7e5d3;
+      }
+      #ring {
+        position: absolute;
+        left: 600px;
+        top: 0;
+        width: 680px;
+        height: 720px;
+      }
+      #ring text {
+        font-family: Inter, sans-serif;
+      }
+      #ring .figure {
+        font-family: Newsreader, serif;
+        font-weight: 300;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bloom" style="left: 480px; top: -40px; width: 840px; height: 840px; background: radial-gradient(closest-side, #a8c8e8 0%, #a8c8e8cc 30%, #a8c8e800 100%); opacity: 0.85"></div>
+    <div class="bloom" style="left: 820px; top: -280px; width: 780px; height: 780px; background: radial-gradient(closest-side, #a7e5d3 0%, #a7e5d3cc 30%, #a7e5d300 100%); opacity: 0.8"></div>
+    <div class="bloom" style="left: 260px; top: 220px; width: 780px; height: 780px; background: radial-gradient(closest-side, #f4c5a8 0%, #f4c5a8cc 30%, #f4c5a800 100%); opacity: 0.6"></div>
+    <div class="bloom" style="left: -320px; top: -340px; width: 840px; height: 840px; background: radial-gradient(closest-side, #c8b8e0 0%, #c8b8e0cc 30%, #c8b8e000 100%); opacity: 0.6"></div>
+    <div class="bloom" style="left: 860px; top: 320px; width: 700px; height: 700px; background: radial-gradient(closest-side, #e8b8c4 0%, #e8b8c4cc 30%, #e8b8c400 100%); opacity: 0.45"></div>
+    <div class="grain"></div>
+
+    <div class="copy">
+      <div class="logo">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <path d="M24.69 17.46C24.82 17.34 25.22 16.98 25.46 16.72C25.70 16.47 25.92 16.21 26.12 15.94C26.31 15.68 26.49 15.40 26.65 15.13C26.81 14.86 26.94 14.57 27.06 14.30C27.17 14.02 27.26 13.73 27.33 13.46C27.40 13.18 27.45 12.90 27.47 12.62C27.49 12.35 27.50 12.08 27.48 11.81C27.46 11.55 27.42 11.29 27.35 11.04C27.29 10.79 27.20 10.54 27.10 10.31C26.99 10.08 26.87 9.86 26.72 9.65C26.58 9.44 26.41 9.24 26.23 9.06C26.05 8.88 25.84 8.71 25.63 8.56C25.41 8.41 25.18 8.27 24.93 8.16C24.68 8.04 24.42 7.94 24.14 7.85C23.87 7.77 23.58 7.71 23.28 7.66C22.99 7.62 22.68 7.59 22.36 7.59C22.05 7.58 21.72 7.60 21.39 7.64C21.06 7.67 20.73 7.73 20.39 7.80C20.05 7.88 19.71 7.98 19.37 8.10C19.03 8.21 18.69 8.35 18.35 8.51C18.01 8.67 17.67 8.85 17.34 9.04C17.00 9.24 16.67 9.46 16.35 9.69C16.03 9.92 15.71 10.17 15.40 10.44C15.10 10.71 14.80 10.99 14.51 11.29C14.22 11.59 13.94 11.90 13.68 12.23C13.42 12.56 13.17 12.90 12.93 13.25C12.69 13.60 12.47 13.96 12.26 14.33C12.06 14.70 11.79 15.27 11.69 15.46" />
+          <path d="M10.61 23.17C10.65 23.34 10.76 23.87 10.86 24.20C10.96 24.54 11.08 24.86 11.21 25.16C11.34 25.47 11.49 25.76 11.65 26.03C11.81 26.31 11.98 26.56 12.16 26.80C12.35 27.04 12.55 27.26 12.76 27.46C12.96 27.66 13.18 27.84 13.41 28.00C13.63 28.16 13.87 28.29 14.10 28.41C14.34 28.52 14.59 28.62 14.84 28.69C15.09 28.76 15.34 28.81 15.59 28.83C15.84 28.85 16.10 28.86 16.35 28.84C16.61 28.81 16.86 28.77 17.11 28.70C17.36 28.63 17.61 28.54 17.84 28.43C18.08 28.32 18.32 28.19 18.55 28.03C18.77 27.88 18.99 27.70 19.20 27.50C19.41 27.30 19.61 27.09 19.80 26.85C19.98 26.62 20.16 26.36 20.32 26.09C20.48 25.82 20.63 25.53 20.76 25.23C20.90 24.93 21.02 24.61 21.12 24.28C21.22 23.94 21.31 23.60 21.38 23.25C21.44 22.89 21.50 22.52 21.53 22.15C21.56 21.78 21.58 21.40 21.57 21.01C21.57 20.62 21.55 20.23 21.51 19.83C21.47 19.44 21.41 19.04 21.33 18.64C21.25 18.24 21.15 17.84 21.04 17.44C20.93 17.04 20.79 16.64 20.64 16.25C20.49 15.86 20.32 15.47 20.14 15.09C19.95 14.71 19.75 14.34 19.53 13.97C19.32 13.61 18.96 13.09 18.84 12.91" />
+          <path d="M12.70 8.12C12.53 8.07 12.02 7.90 11.68 7.82C11.34 7.74 11.01 7.68 10.68 7.64C10.35 7.60 10.02 7.59 9.71 7.59C9.39 7.59 9.08 7.61 8.78 7.65C8.48 7.69 8.19 7.76 7.92 7.84C7.64 7.92 7.37 8.01 7.12 8.13C6.87 8.25 6.64 8.38 6.42 8.53C6.20 8.68 5.99 8.85 5.81 9.02C5.63 9.20 5.46 9.40 5.31 9.61C5.16 9.81 5.03 10.03 4.92 10.26C4.82 10.49 4.73 10.74 4.66 10.98C4.60 11.23 4.55 11.49 4.53 11.76C4.50 12.02 4.50 12.29 4.53 12.56C4.55 12.84 4.59 13.12 4.66 13.40C4.72 13.67 4.81 13.96 4.92 14.24C5.03 14.52 5.16 14.80 5.32 15.07C5.47 15.35 5.65 15.62 5.84 15.89C6.04 16.15 6.26 16.42 6.49 16.67C6.73 16.92 6.98 17.17 7.25 17.41C7.53 17.64 7.82 17.87 8.12 18.09C8.43 18.30 8.75 18.51 9.09 18.70C9.43 18.89 9.78 19.07 10.14 19.23C10.51 19.39 10.88 19.54 11.27 19.67C11.65 19.80 12.05 19.92 12.45 20.02C12.85 20.12 13.26 20.20 13.68 20.27C14.09 20.33 14.51 20.38 14.93 20.41C15.35 20.44 15.78 20.45 16.20 20.45C16.63 20.44 17.26 20.39 17.47 20.38" />
+        </svg>
+        Nodus
+      </div>
+      <h1>Desanuda las deudas <em>entre negocios.</em></h1>
+      <div class="pill">Solo se paga <b>la diferencia</b></div>
+    </div>
+
+    <svg id="ring" viewBox="0 0 680 720"></svg>
+
+    <script>
+      // El círculo del video: el molino le debe 80 al flete, el flete 90 a la panadería y la panadería 100 al molino.
+      const GLYPHS = {
+        panaderia: ["M5 24 H27 V16 A11 8.5 0 0 0 5 16 Z", "M10.5 14 L13 19 M15.5 12.5 L18 17.5 M20.5 14 L23 19"],
+        molino: ["M10 28 L12.5 18.5 L16 15 L19.5 18.5 L22 28 Z", "M9.5 4.5 L22.5 17.5 M22.5 4.5 L9.5 17.5"],
+        fletes: [
+          "M6 21 H4 V8 H18 V21 H12 M18 12 H23 L28 17 V21 H26 M18 21 H20",
+          "M12 22.5 A3 3 0 1 0 6 22.5 A3 3 0 1 0 12 22.5 M26 22.5 A3 3 0 1 0 20 22.5 A3 3 0 1 0 26 22.5",
+        ],
+      };
+      const [CX, CY, R, NODE] = [340, 356, 218, 43];
+      // Los ángulos van en el sentido del reloj desde arriba, como las flechas.
+      const PARTIES = [
+        { glyph: "molino", angle: 300, owes: 80 },
+        { glyph: "fletes", angle: 60, owes: 90 },
+        { glyph: "panaderia", angle: 180, owes: 100 },
+      ];
+      const at = (angle, radius = R) => {
+        const rad = ((angle - 90) * Math.PI) / 180;
+        return [CX + radius * Math.cos(rad), CY + radius * Math.sin(rad)];
+      };
+      const gap = (Math.asin(NODE / 2 / R) * 2 * 180) / Math.PI + 3;
+      let svg = "";
+      PARTIES.forEach((party, i) => {
+        const next = PARTIES[(i + 1) % PARTIES.length];
+        const from = party.angle + gap;
+        const to = (next.angle <= party.angle ? next.angle + 360 : next.angle) - gap - 6.5;
+        const [x1, y1] = at(from);
+        const [x2, y2] = at(to);
+        svg += `<path d="M${x1} ${y1} A${R} ${R} 0 0 1 ${x2} ${y2}" fill="none" stroke="var(--free)" stroke-width="9" stroke-linecap="round"/>`;
+        // La punta, girada según la tangente del círculo donde termina el arco.
+        const [tx, ty] = at(to + 3);
+        svg += `<path d="M-15 -13 L8 0 L-15 13 Z" fill="var(--free)" stroke="var(--free)" stroke-width="4" stroke-linejoin="round" transform="translate(${tx} ${ty}) rotate(${to + 3})"/>`;
+        const [lx, ly] = at((from + to) / 2, R + 54);
+        svg += `<text class="figure" x="${lx}" y="${ly + 16}" text-anchor="middle" font-size="50" fill="var(--ink)">${party.owes}</text>`;
+      });
+      PARTIES.forEach((party) => {
+        const [x, y] = at(party.angle);
+        svg += `<circle cx="${x}" cy="${y}" r="${NODE}" fill="#fff" stroke="var(--ink)" stroke-width="3.5"/>`;
+        svg += `<g transform="translate(${x - 28} ${y - 28}) scale(1.75)" fill="none" stroke="var(--ink)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${GLYPHS[party.glyph].map((d) => `<path d="${d}"/>`).join("")}</g>`;
+      });
+      svg += `<text x="${CX}" y="${CY - 92}" text-anchor="middle" font-size="19" font-weight="600" letter-spacing="2.4" fill="var(--muted)">BASTA CON MOVER</text>`;
+      svg += `<text class="figure" x="${CX}" y="${CY + 62}" text-anchor="middle" font-size="176" letter-spacing="-5" fill="var(--free)">20</text>`;
+      svg += `<text x="${CX}" y="${CY + 108}" text-anchor="middle" font-size="24" fill="var(--body)">de 270 en deudas</text>`;
+      document.getElementById("ring").innerHTML = svg;
+    </script>
+  </body>
+</html>

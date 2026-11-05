@@ -21,6 +21,10 @@ const { values: args } = parseArgs({
   options: {
     demo: { type: "string", default: "pitch/out/demo-sin-voz.mp4" },
     salida: { type: "string", default: "pitch/out/nodus-final.mp4" },
+    /** Las tres voces: otra toma o la misma tratada, con los mismos tiempos. */
+    "voz-a": { type: "string", default: "pitch/voz/A.mp3" },
+    "voz-demo": { type: "string", default: "pitch/out/demo-voz.wav" },
+    "voz-b": { type: "string", default: "pitch/out/B-voz-normalizada.wav" },
     "musica-db": { type: "string", default: "-17" },
     "efectos-db": { type: "string", default: "-12" },
     /** `veryfast` para una prueba; el definitivo va con `slow`. */
@@ -35,9 +39,9 @@ const FILES = {
   a: "pitch/out/pitch-A.mp4",
   demo: args.demo,
   b: "pitch/out/pitch-B.mp4",
-  voiceA: "pitch/voz/A.mp3",
-  voiceDemo: "pitch/out/demo-voz.wav",
-  voiceB: "pitch/out/B-voz-normalizada.wav",
+  voiceA: args["voz-a"],
+  voiceDemo: args["voz-demo"],
+  voiceB: args["voz-b"],
   effectsA: "pitch/out/efectos-A.wav",
   effectsB: "pitch/out/efectos-B.wav",
   bed: "pitch/out/cama-final.wav",
